@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "agendavisso"
+  },
+  "targets": {
+    "agendavisso": {
+      "hosting": {
+        "pro": [
+          "agendavisso-pro"
+        ],
+        "paciente": [
+          "agendavisso"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

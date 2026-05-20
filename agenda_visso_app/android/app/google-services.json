@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "838741808501",
+    "project_id": "agendavisso",
+    "storage_bucket": "agendavisso.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:838741808501:android:e7b2012fae0230dc6faf3c",
+        "android_client_info": {
+          "package_name": "com.visso.agenda_visso_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1lG05hljHYclXoglWaex9cGR_KVOEZAs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,42 @@
+# Dart/Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+*.iml
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android
+*.apk
+*.aab
+local.properties
+*.keystore
+key.properties
+
+# iOS
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
+
+# Node
+node_modules/
+functions/node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase
+.firebase/
+*.env
+service-account*.json

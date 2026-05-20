@@ -1,0 +1,17 @@
+{
+  "name": "agenda-visso-functions",
+  "description": "Cloud Functions for Agenda Visso - email notifications",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0",
+    "nodemailer": "^6.9.0"
+  },
+  "private": true
+}
