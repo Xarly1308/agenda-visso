@@ -41,31 +41,39 @@ class NotificacionService {
   static Map<String, String> _conocidas = {};
 
   static Future<void> init() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _localNotifications.initialize(const InitializationSettings(android: android));
+    try {
+      const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+      await _localNotifications.initialize(const InitializationSettings(android: android));
 
-    const channel = AndroidNotificationChannel(
-      'nuevas_citas',
-      'Nuevas citas',
-      description: 'Notificaciones de nuevas citas agendadas',
-      importance: Importance.high,
-    );
-    await _localNotifications.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
-
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    final messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission();
-    await messaging.subscribeToTopic('profesional_notificaciones');
-
-    final token = await messaging.getToken();
-    if (token != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('fcm_token', token);
+      const channel = AndroidNotificationChannel(
+        'nuevas_citas',
+        'Nuevas citas',
+        description: 'Notificaciones de nuevas citas agendadas',
+        importance: Importance.high,
+      );
+      await _localNotifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+    } catch (e) {
+      debugPrint('Error initializing local notifications: $e');
     }
 
-    FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+    try {
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission();
+      await messaging.subscribeToTopic('profesional_notificaciones');
+      debugPrint('Subscribed to topic profesional_notificaciones');
+      final token = await messaging.getToken();
+      if (token != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('fcm_token', token);
+        debugPrint('FCM token saved: ${token.substring(0, 20)}...');
+      }
+      FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+      debugPrint('FCM foreground listener registered');
+    } catch (e) {
+      debugPrint('Error initializing FCM: $e');
+    }
   }
 
   static void _onForegroundMessage(RemoteMessage message) {

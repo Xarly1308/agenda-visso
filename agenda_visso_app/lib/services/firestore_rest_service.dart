@@ -752,13 +752,6 @@ class FirestoreRestService {
             'filters': [
               {
                 'fieldFilter': {
-                  'field': {'fieldPath': 'profesionalId'},
-                  'op': 'EQUAL',
-                  'value': {'stringValue': profesionalId},
-                },
-              },
-              {
-                'fieldFilter': {
                   'field': {'fieldPath': 'fecha'},
                   'op': 'GREATER_THAN_OR_EQUAL',
                   'value': {'stringValue': d},
