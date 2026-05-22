@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ota_update/ota_update.dart';
@@ -73,14 +74,19 @@ class AppUpdateService {
   Future<bool> downloadUpdate(String url, {void Function(double progress, String status)? onProgress}) async {
     try {
       final ota = OtaUpdate();
-      final stream = ota.execute(url, destinationFilename: 'app-release.apk', usePackageInstaller: true);
+      final stream = ota.execute(url, destinationFilename: 'app-release.apk', usePackageInstaller: false);
       await for (final event in stream) {
         final p = double.tryParse(event.value ?? '') ?? 0;
         onProgress?.call(p / 100, event.status.name);
-        if (event.status == OtaStatus.INSTALLING) break;
+        if (event.status == OtaStatus.INSTALLING) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          break;
+        }
+        if (event.status == OtaStatus.INSTALLATION_ERROR) return false;
       }
       return true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('downloadUpdate error: $e');
       return false;
     }
   }
