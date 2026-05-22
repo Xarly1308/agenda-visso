@@ -9,7 +9,7 @@ import 'excepciones_screen.dart';
 import 'resumen_horarios_screen.dart';
 import 'tipos_consulta_screen.dart';
 
-const String kAppVersion = '1.0.0';
+const String kAppVersion = '1.1.0';
 
 class ConfigScreen extends StatefulWidget {
   const ConfigScreen({super.key});

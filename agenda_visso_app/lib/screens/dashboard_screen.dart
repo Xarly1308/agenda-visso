@@ -13,6 +13,7 @@ import '../services/firestore_service.dart';
 import '../services/app_update_service.dart';
 import '../utils/colombian_holidays.dart';
 import '../utils/formato_hora.dart';
+import 'config_screen.dart';
 import '../widgets/calendar_header.dart';
 import 'nueva_cita_screen.dart';
 import 'pacientes_screen.dart';
@@ -80,7 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final apkUrl = version['apkUrl'];
       final notas = version['notas'];
       if (latestVersion == null || apkUrl == null) return;
-      const currentVersion = '1.0.0';
+      const currentVersion = kAppVersion;
       if (!AppUpdateService().isUpdateAvailable(latestVersion, currentVersion)) return;
       await showDialog(
         context: context,

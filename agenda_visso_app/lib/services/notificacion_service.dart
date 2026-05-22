@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colombian_holidays.dart';
@@ -94,6 +95,9 @@ class NotificacionService {
       Cita cita, BuildContext context, String profesionalId) async {
     final creadoPor = cita.creadoPor;
     if (creadoPor == profesionalId) return;
+
+    HapticFeedback.heavyImpact();
+    SystemSound.play(SystemSoundType.alert);
 
     final mensaje =
         'Nueva cita agendada: ${cita.fecha} a las ${formato12h(cita.hora)}';
