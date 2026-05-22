@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colombian_holidays.dart';
 import '../utils/formato_hora.dart';
@@ -9,16 +10,54 @@ import '../models/cita.dart';
 import '../models/notificacion.dart';
 import '../services/firestore_rest_service.dart';
 
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  final plugin = FlutterLocalNotificationsPlugin();
+  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await plugin.initialize(const InitializationSettings(android: android));
+  await plugin.show(
+    0,
+    message.notification?.title ?? 'Agenda Visso',
+    message.notification?.body ?? '',
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'nuevas_citas',
+        'Nuevas citas',
+        channelDescription: 'Notificaciones de nuevas citas agendadas',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    ),
+  );
+}
+
 class NotificacionService {
   static final GlobalKey<ScaffoldMessengerState> messengerKey =
       GlobalKey<ScaffoldMessengerState>();
   static final FirestoreRestService _rest = FirestoreRestService();
+  static final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   static Timer? _pollTimer;
   static Map<String, String> _conocidas = {};
 
   static Future<void> init() async {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    await _localNotifications.initialize(const InitializationSettings(android: android));
+
+    const channel = AndroidNotificationChannel(
+      'nuevas_citas',
+      'Nuevas citas',
+      description: 'Notificaciones de nuevas citas agendadas',
+      importance: Importance.high,
+    );
+    await _localNotifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
     final messaging = FirebaseMessaging.instance;
     await messaging.requestPermission();
+    await messaging.subscribeToTopic('profesional_notificaciones');
 
     final token = await messaging.getToken();
     if (token != null) {
@@ -30,12 +69,31 @@ class NotificacionService {
   }
 
   static void _onForegroundMessage(RemoteMessage message) {
-    final snackBar = SnackBar(
-      content: Text(message.notification?.body ?? 'Nueva notificación'),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 4),
+    final title = message.notification?.title ?? 'Nueva notificación';
+    final body = message.notification?.body ?? '';
+
+    _localNotifications.show(
+      0,
+      title,
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'nuevas_citas',
+          'Nuevas citas',
+          channelDescription: 'Notificaciones de nuevas citas agendadas',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
     );
-    messengerKey.currentState?.showSnackBar(snackBar);
+
+    messengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text('$title: $body'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   static Stream<List<Cita>> citasStream(String profesionalId) {

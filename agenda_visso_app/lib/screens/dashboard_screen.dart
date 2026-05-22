@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/sede.dart';
 import '../models/horario.dart';
 import '../models/cita.dart';
@@ -74,6 +76,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _verificarActualizacion() async {
+    if (kIsWeb) return;
+
     try {
       final version = await AppUpdateService().getLatestVersion();
       if (version == null || !mounted) return;
@@ -81,9 +85,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final apkUrl = version['apkUrl'];
       final notas = version['notas'];
       if (latestVersion == null || apkUrl == null) return;
-      const currentVersion = kAppVersion;
-      if (!AppUpdateService().isUpdateAvailable(latestVersion, currentVersion)) return;
-      await showDialog(
+      if (!AppUpdateService().isUpdateAvailable(latestVersion, kAppVersion)) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final lastNotified = prefs.getString('last_notified_version');
+      if (lastNotified == latestVersion) return;
+      await prefs.setString('last_notified_version', latestVersion);
+
+      final shouldDownload = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
@@ -101,20 +110,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Ahora no'),
             ),
             FilledButton.icon(
               icon: const Icon(Icons.download, size: 18),
               label: const Text('Descargar'),
-              onPressed: () {
-                Navigator.pop(ctx);
-                AppUpdateService().downloadUpdate(apkUrl);
-              },
+              onPressed: () => Navigator.pop(ctx, true),
             ),
           ],
         ),
       );
+
+      if (shouldDownload != true || !mounted) return;
+
+      final exito = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _DownloadProgressDialog(apkUrl: apkUrl),
+      );
+
+      if (!mounted) return;
+      if (exito != true) {
+        final p = await SharedPreferences.getInstance();
+        await p.remove('last_notified_version');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al descargar la actualización. Se reintentará al reiniciar.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (_) {}
   }
 
@@ -833,7 +860,7 @@ class _AgendaViewState extends State<_AgendaView> {
             if (cita.estado != 'cancelada')
               ListTile(
                 leading: const Icon(Icons.cancel, color: Colors.red),
-                title: const Text('Cancelar', style: TextStyle(color: Colors.red)),
+                title: const Text('Cancelar'),
                 onTap: () {
                   Navigator.pop(ctx);
                   agenda.cambiarEstadoCita(cita.id, 'cancelada');
@@ -841,8 +868,7 @@ class _AgendaViewState extends State<_AgendaView> {
               ),
             ListTile(
               leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
-              title: const Text('Solicitar confirmación por WhatsApp',
-                  style: TextStyle(color: Color(0xFF25D366))),
+              title: const Text('Solicitar confirmación por WhatsApp'),
               onTap: () async {
                 Navigator.pop(ctx);
                 final paciente = await _service.getPacientePorId(cita.pacienteId);
@@ -973,5 +999,71 @@ class _ConfigView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ConfigScreen();
+  }
+}
+
+class _DownloadProgressDialog extends StatefulWidget {
+  final String apkUrl;
+  const _DownloadProgressDialog({required this.apkUrl});
+
+  @override
+  State<_DownloadProgressDialog> createState() => _DownloadProgressDialogState();
+}
+
+class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
+  double _progreso = 0;
+  String _estado = 'Iniciando...';
+  bool _error = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _iniciar();
+  }
+
+  Future<void> _iniciar() async {
+    final ok = await AppUpdateService().downloadUpdate(
+      widget.apkUrl,
+      onProgress: (p, s) {
+        if (mounted) setState(() { _progreso = p; _estado = s; });
+      },
+    );
+    if (mounted) {
+      if (ok) {
+        Navigator.pop(context, true);
+      } else {
+        setState(() { _error = true; _estado = 'Error en la descarga'; });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_error ? 'Error' : 'Descargando actualización'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!_error)
+            LinearProgressIndicator(value: _progreso > 0 ? _progreso : null),
+          if (!_error) ...[
+            const SizedBox(height: 12),
+            Text('${(_progreso * 100).toInt()}%',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(_estado, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+          if (_error) ...[
+            const SizedBox(height: 12),
+            Text(_estado, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }

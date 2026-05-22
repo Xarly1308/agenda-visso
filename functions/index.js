@@ -115,6 +115,25 @@ exports.enviarConfirmacion = functions.firestore
     } catch (err) {
       functions.logger.error('Error enviando confirmación:', err);
     }
+
+    // Enviar notificación push al profesional
+    try {
+      const nombrePaciente = (paciente.nombres || 'Paciente').split(' ').slice(0, 2).join(' ');
+      await admin.messaging().send({
+        topic: 'profesional_notificaciones',
+        notification: {
+          title: 'Nueva cita agendada',
+          body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}`,
+        },
+        data: {
+          tipo: 'nueva_cita',
+          citaId: context.params.citaId,
+        },
+      });
+      functions.logger.log('Push enviado al profesional');
+    } catch (err) {
+      functions.logger.error('Error enviando push:', err);
+    }
   });
 
 // ─── RECORDATORIO ─────────────────────────────────────────
