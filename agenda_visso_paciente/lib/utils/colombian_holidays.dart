@@ -23,6 +23,11 @@ class ColombianHolidays {
     return d.add(Duration(days: daysUntilMonday));
   }
 
+  static DateTime _toMonday(DateTime d) {
+    if (d.weekday == DateTime.monday) return d;
+    return _nextMonday(d);
+  }
+
   static List<DateTime> getHolidays(int year) {
     final easter = _easter(year);
     final holidays = <DateTime>[];
@@ -41,9 +46,9 @@ class ColombianHolidays {
     holidays.add(easter.subtract(const Duration(days: 3)));
     holidays.add(easter.subtract(const Duration(days: 2)));
     holidays.add(DateTime(year, 5, 1));
-    holidays.add(_nextMonday(easter.add(const Duration(days: 43))));
-    holidays.add(_nextMonday(easter.add(const Duration(days: 64))));
-    holidays.add(_nextMonday(easter.add(const Duration(days: 71))));
+    holidays.add(_toMonday(easter.add(const Duration(days: 43))));
+    holidays.add(_toMonday(easter.add(const Duration(days: 64))));
+    holidays.add(_toMonday(easter.add(const Duration(days: 71))));
     addIfNotMonday(DateTime(year, 6, 29), 'San Pedro y San Pablo');
     holidays.add(DateTime(year, 7, 20));
     holidays.add(DateTime(year, 8, 7));
@@ -88,9 +93,9 @@ class ColombianHolidays {
     final easter = _easter(h.year);
     if (h == easter.subtract(const Duration(days: 3))) return 'Jueves Santo';
     if (h == easter.subtract(const Duration(days: 2))) return 'Viernes Santo';
-    if (h == _nextMonday(easter.add(const Duration(days: 43)))) return 'Ascensión de Jesús';
-    if (h == _nextMonday(easter.add(const Duration(days: 64)))) return 'Corpus Christi';
-    if (h == _nextMonday(easter.add(const Duration(days: 71)))) return 'Sagrado Corazón';
+    if (h == _toMonday(easter.add(const Duration(days: 43)))) return 'Ascensión de Jesús';
+    if (h == _toMonday(easter.add(const Duration(days: 64)))) return 'Corpus Christi';
+    if (h == _toMonday(easter.add(const Duration(days: 71)))) return 'Sagrado Corazón';
     return null;
   }
 
