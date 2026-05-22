@@ -120,9 +120,10 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
     final p = widget.paciente;
     final theme = Theme.of(context);
 
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 16;
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: bottomPadding,
         left: 16, right: 16, top: 16,
       ),
       child: Column(

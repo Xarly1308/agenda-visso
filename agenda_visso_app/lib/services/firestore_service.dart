@@ -44,6 +44,9 @@ class FirestoreService {
         horarios: horarios,
       );
 
+  Future<Paciente?> getPacientePorId(String id) =>
+      _rest.getPacientePorId(id);
+
   Future<Paciente?> getPacientePorDocumento(String documento) =>
       _rest.getPacientePorDocumento(documento);
 
@@ -140,4 +143,9 @@ class FirestoreService {
   Future<void> deleteTipoConsulta(String id) => _rest.deleteTipoConsulta(id);
   Future<List<Cita>> getCitasEnRango(DateTime desde, DateTime hasta) =>
       _rest.getCitasEnRango(desde, hasta);
+
+  Future<void> deleteAllCitas() => _rest.deleteAllCitas();
+  Future<void> deleteAllCollections() => _rest.deleteAllCollections();
+  Future<void> deleteSelectedCollections(List<String> collections) =>
+      _rest.deleteSelectedCollections(collections);
 }

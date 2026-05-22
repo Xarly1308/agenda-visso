@@ -47,6 +47,7 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
   Paciente? _pacienteExistente;
   String? _tipoConsulta;
   List<TipoConsulta> _tiposConsulta = [];
+  bool _yaEraPaciente = false;
 
   @override
   void initState() {
@@ -158,6 +159,7 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
           nombres: nombres,
           telefono: tel,
           email: email.isEmpty ? null : email,
+          yaEraPaciente: _yaEraPaciente,
         ));
       }
     }
@@ -415,6 +417,14 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
                             child: Text(t.nombre),
                           )).toList(),
                           onChanged: (v) => setState(() => _tipoConsulta = v),
+                        ),
+                        const SizedBox(height: 8),
+                        CheckboxListTile(
+                          value: _yaEraPaciente,
+                          title: const Text('Ya es paciente de Visso Optometría', style: TextStyle(fontSize: 14)),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                          onChanged: (v) => setState(() => _yaEraPaciente = v ?? false),
                         ),
                         const SizedBox(height: 24),
                         SizedBox(

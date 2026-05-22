@@ -140,11 +140,11 @@ class FirestoreRestService {
   }
 
   Future<void> updateSede(Sede sede) async {
-    await _setDocument('sedes', sede.id, sede.toMap());
+    await _updateDocument('sedes', sede.id, sede.toMap());
   }
 
   Future<void> deleteSede(String id) async {
-    await _setDocument('sedes', id, {'activa': false});
+    await _updateDocument('sedes', id, {'activa': false});
   }
 
   // ─── HORARIOS ─────────────────────────────────────────────────────
@@ -210,16 +210,10 @@ class FirestoreRestService {
   }
 
   Future<List<Horario>> getHorariosPorProfesional(String profesionalId) async {
+    // Global: return all horarios regardless of professional
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'horarios'}],
-        'where': {
-          'fieldFilter': {
-            'field': {'fieldPath': 'profesionalId'},
-            'op': 'EQUAL',
-            'value': {'stringValue': profesionalId},
-          },
-        },
       },
     });
     return docs
@@ -246,28 +240,15 @@ class FirestoreRestService {
     required String sedeId,
     required List<Horario> horarios,
   }) async {
+    // Global: query horarios by sede only (not by professional)
     final existing = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'horarios'}],
         'where': {
-          'compositeFilter': {
-            'op': 'AND',
-            'filters': [
-              {
-                'fieldFilter': {
-                  'field': {'fieldPath': 'profesionalId'},
-                  'op': 'EQUAL',
-                  'value': {'stringValue': profesionalId},
-                },
-              },
-              {
-                'fieldFilter': {
-                  'field': {'fieldPath': 'sedeId'},
-                  'op': 'EQUAL',
-                  'value': {'stringValue': sedeId},
-                },
-              },
-            ],
+          'fieldFilter': {
+            'field': {'fieldPath': 'sedeId'},
+            'op': 'EQUAL',
+            'value': {'stringValue': sedeId},
           },
         },
       },
@@ -313,6 +294,12 @@ class FirestoreRestService {
     }
   }
 
+  Future<Paciente?> getPacientePorId(String id) async {
+    final doc = await _getDocument('pacientes', id);
+    if (doc == null) return null;
+    return Paciente.fromMap(doc);
+  }
+
   Future<Paciente?> getPacientePorDocumento(String documento) async {
     final docs = await _runQuery({
       'structuredQuery': {
@@ -332,7 +319,7 @@ class FirestoreRestService {
   }
 
   Future<void> updatePaciente(Paciente paciente) async {
-    await _setDocument('pacientes', paciente.id, paciente.toMap());
+    await _updateDocument('pacientes', paciente.id, paciente.toMap());
   }
 
   Future<Paciente> addPaciente(Paciente paciente) async {
@@ -558,13 +545,6 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'excepciones'}],
-        'where': {
-          'fieldFilter': {
-            'field': {'fieldPath': 'profesionalId'},
-            'op': 'EQUAL',
-            'value': {'stringValue': profesionalId},
-          },
-        },
       },
     });
     return docs
@@ -586,13 +566,6 @@ class FirestoreRestService {
           'compositeFilter': {
             'op': 'AND',
             'filters': [
-              {
-                'fieldFilter': {
-                  'field': {'fieldPath': 'profesionalId'},
-                  'op': 'EQUAL',
-                  'value': {'stringValue': profesionalId},
-                },
-              },
               {
                 'fieldFilter': {
                   'field': {'fieldPath': 'fecha'},
@@ -835,6 +808,44 @@ class FirestoreRestService {
 
   Future<void> deleteTipoConsulta(String id) async {
     await _updateDocument('tipos_consulta', id, {'activo': false});
+  }
+
+  // ─── BORRADO MASIVO ─────────────────────────────────────────────
+
+  Future<void> _deleteAllInCollection(String collection) async {
+    final docs = await _runQuery({
+      'structuredQuery': {
+        'from': [{'collectionId': collection}],
+      },
+    });
+    if (docs.isEmpty) return;
+    final writes = docs
+        .map((doc) => {'delete': doc['document']['name'] as String})
+        .toList();
+    for (var i = 0; i < writes.length; i += 500) {
+      final batch = writes.sublist(i, (i + 500).clamp(0, writes.length));
+      await _commit(batch);
+    }
+  }
+
+  Future<void> deleteAllCitas() async {
+    await _deleteAllInCollection('citas');
+  }
+
+  Future<void> deleteAllCollections() async {
+    const collections = [
+      'citas', 'sedes', 'horarios', 'tipos_consulta',
+      'excepciones', 'pacientes', 'notificaciones', 'profesionales',
+    ];
+    for (final coll in collections) {
+      await _deleteAllInCollection(coll);
+    }
+  }
+
+  Future<void> deleteSelectedCollections(List<String> collections) async {
+    for (final coll in collections) {
+      await _deleteAllInCollection(coll);
+    }
   }
 
   // ─── ESTADÍSTICAS ────────────────────────────────────────────────

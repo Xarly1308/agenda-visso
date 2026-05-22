@@ -150,7 +150,6 @@ class _DiaCelda extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
         padding: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
           color: _fondo(),
@@ -161,14 +160,14 @@ class _DiaCelda extends StatelessWidget {
           children: [
             Text(nombre,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: seleccionado ? FontWeight.w600 : FontWeight.w400,
                   color: _color ?? Colors.grey.shade600,
                 )),
             const SizedBox(height: 2),
             Container(
-              width: 28,
-              height: 28,
+              width: 26,
+              height: 26,
               alignment: Alignment.center,
               decoration: esHoy && !seleccionado
                   ? BoxDecoration(
@@ -180,7 +179,7 @@ class _DiaCelda extends StatelessWidget {
                   : null,
               child: Text('${dia.day}',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: esHoy || seleccionado ? FontWeight.bold : FontWeight.w500,
                     color: seleccionado
                         ? Colors.white

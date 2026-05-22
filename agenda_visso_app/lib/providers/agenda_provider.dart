@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/cita.dart';
 import '../models/horario.dart';
@@ -14,6 +15,7 @@ class AgendaProvider extends ChangeNotifier {
   bool _cargando = false;
   DateTime _fechaSeleccionada = DateTime.now();
   String? _profesionalId;
+  Timer? _pollTimer;
 
   List<Cita> get citasDelDia => _citasDelDia;
   List<String> get slotsDisponibles => _slotsDisponibles;
@@ -23,6 +25,19 @@ class AgendaProvider extends ChangeNotifier {
   void inicializar(String profesionalId) {
     _profesionalId = profesionalId;
     cargarCitas(_fechaSeleccionada);
+    _iniciarPolling();
+  }
+
+  void _iniciarPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      cargarCitas(_fechaSeleccionada);
+    });
+  }
+
+  void detenerPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
   }
 
   void setFecha(DateTime fecha) {
@@ -112,6 +127,12 @@ class AgendaProvider extends ChangeNotifier {
     await cargarCitas(_fechaSeleccionada);
   }
 
+  @override
+  void dispose() {
+    detenerPolling();
+    super.dispose();
+  }
+
   Future<void> limpiarSemana() async {
     if (_profesionalId == null) return;
     final hoy = DateTime.now();
@@ -136,5 +157,25 @@ class AgendaProvider extends ChangeNotifier {
 
   Future<Paciente> registrarPaciente(Paciente paciente) async {
     return await _service.addPaciente(paciente);
+  }
+
+  Future<void> borrarTodaLaAgenda() async {
+    await _service.deleteAllCitas();
+    _citasDelDia = [];
+    notifyListeners();
+  }
+
+  Future<void> borrarTodaLaBaseDeDatos() async {
+    await _service.deleteAllCollections();
+    _citasDelDia = [];
+    notifyListeners();
+  }
+
+  Future<void> limpiarDatos(List<String> collections) async {
+    await _service.deleteSelectedCollections(collections);
+    if (collections.contains('citas')) {
+      _citasDelDia = [];
+    }
+    notifyListeners();
   }
 }

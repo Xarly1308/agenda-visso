@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/sede.dart';
 import '../models/horario.dart';
 import '../models/cita.dart';
@@ -303,11 +304,46 @@ class _AgendaView extends StatefulWidget {
 
 class _AgendaViewState extends State<_AgendaView> {
   final _service = FirestoreService();
+  final _scrollCtrl = ScrollController();
   List<Horario> _horariosDelDia = [];
   DateTime? _ultimaFecha;
   String? _ultimaSede;
   Set<String> _excepcionFechas = {};
   Map<String, String> _excepcionMotivos = {};
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _scrollAPrimeraCita() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final agenda = context.read<AgendaProvider>();
+      final config = context.read<ConfigProvider>();
+      final citasSede = config.sedeSeleccionadaId == null
+          ? agenda.citasDelDia
+          : agenda.citasDelDia.where((c) => c.sedeId == config.sedeSeleccionadaId).toList();
+      final sorted = citasSede.where((c) => c.estado != 'cancelada').toList();
+      if (sorted.isEmpty) return;
+      final primeraHora = sorted.map((c) => _horaToMinutos(c.hora)).reduce((a, b) => a < b ? a : b);
+      final timeline = _generarTimeline(citasSede);
+      for (var i = 0; i < timeline.length; i++) {
+        if (timeline[i].cita != null && _horaToMinutos(timeline[i].hora) >= primeraHora) {
+          double offset = 0;
+          for (var j = 0; j < i; j++) {
+            offset += timeline[j].cita != null ? 72 : 36;
+          }
+          if (_scrollCtrl.hasClients) {
+            _scrollCtrl.animateTo(offset.clamp(0, _scrollCtrl.position.maxScrollExtent),
+                duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
+          return;
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -401,6 +437,7 @@ class _AgendaViewState extends State<_AgendaView> {
         else
           Expanded(
             child: ListView.builder(
+              controller: _scrollCtrl,
               itemCount: timeline.length + (citasCanceladas(citasSede).isNotEmpty ? citasCanceladas(citasSede).length : 0),
               itemBuilder: (context, i) {
                 if (i < timeline.length) {
@@ -451,7 +488,10 @@ class _AgendaViewState extends State<_AgendaView> {
       final fs = '${e.fecha.year}-${e.fecha.month.toString().padLeft(2, '0')}-${e.fecha.day.toString().padLeft(2, '0')}';
       _excepcionMotivos[fs] = e.motivo;
     }
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      _scrollAPrimeraCita();
+    }
   }
 
   Widget _buildSedeSelector(ConfigProvider config, AgendaProvider agenda) {
@@ -588,13 +628,14 @@ class _AgendaViewState extends State<_AgendaView> {
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
+                          color: Colors.black87,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${formato12h(cita.hora)} · ${_estadoLabel(estado)}',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        style: const TextStyle(fontSize: 11, color: Colors.black54),
                       ),
                     ],
                   ),
@@ -618,6 +659,44 @@ class _AgendaViewState extends State<_AgendaView> {
         ),
       ),
     );
+  }
+
+  Future<void> _enviarWhatsApp(Cita cita, String pacienteTelefono) async {
+    if (pacienteTelefono.isEmpty) return;
+    final config = context.read<ConfigProvider>();
+    final sedeNombre = config.sedes.where((s) => s.id == cita.sedeId).firstOrNull?.nombre ?? '';
+    final telefono = pacienteTelefono.replaceAll(RegExp(r'[^\d]'), '');
+    final msg = Uri.encodeComponent(
+      'Hola ${cita.pacienteNombre ?? ""}, te recordamos tu cita en $sedeNombre '
+      'el día ${cita.fecha.day}/${cita.fecha.month}/${cita.fecha.year} '
+      'a las ${formato12h(cita.hora)}. '
+      'Por favor confirma tu asistencia respondiendo este mensaje.',
+    );
+    final uris = [
+      Uri.parse('whatsapp://send?phone=57$telefono&text=$msg'),
+      Uri.parse('https://wa.me/57$telefono?text=$msg'),
+    ];
+    for (final uri in uris) {
+      try {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          return;
+        }
+      } catch (_) {}
+    }
+    // Fallback: abrir en navegador
+    try {
+      await launchUrl(uris[1], mode: LaunchMode.platformDefault);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('WhatsApp no está instalado en este dispositivo'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _mostrarMenuCita(BuildContext context, Cita cita) {
@@ -654,6 +733,26 @@ class _AgendaViewState extends State<_AgendaView> {
                   agenda.cambiarEstadoCita(cita.id, 'cancelada');
                 },
               ),
+            ListTile(
+              leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
+              title: const Text('Solicitar confirmación por WhatsApp',
+                  style: TextStyle(color: Color(0xFF25D366))),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final paciente = await _service.getPacientePorId(cita.pacienteId);
+                if (!mounted) return;
+                if (paciente == null || paciente.telefono.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('El paciente no tiene teléfono registrado'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
+                _enviarWhatsApp(cita, paciente.telefono);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
               title: const Text('Eliminar', style: TextStyle(color: Colors.red)),

@@ -50,7 +50,7 @@ class AppUpdateService {
           'fields': {
             'version': {'stringValue': '1.0.0'},
             'buildNumber': {'stringValue': '1'},
-            'apkUrl': {'stringValue': 'https://agendavisso-pro.web.app/app-release.apk.zip'},
+            'apkUrl': {'stringValue': 'https://github.com/Xarly1308/agenda-visso/releases/download/v1.0.0/app-release.apk'},
             'notas': {'stringValue': 'Versión inicial'},
           },
         }),

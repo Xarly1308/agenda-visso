@@ -5,6 +5,7 @@ class Sede {
   final String? telefono;
   final bool activa;
   final String icono;
+  final String? fotoUrl;
 
   Sede({
     required this.id,
@@ -13,6 +14,7 @@ class Sede {
     this.telefono,
     this.activa = true,
     this.icono = 'store',
+    this.fotoUrl,
   });
 
   Map<String, dynamic> toMap() => {
@@ -22,6 +24,7 @@ class Sede {
         'telefono': telefono,
         'activa': activa,
         'icono': icono,
+        'fotoUrl': fotoUrl,
       };
 
   factory Sede.fromMap(Map<String, dynamic> map) => Sede(
@@ -31,6 +34,7 @@ class Sede {
         telefono: map['telefono'] as String?,
         activa: map['activa'] as bool? ?? true,
         icono: map['icono'] as String? ?? 'store',
+        fotoUrl: map['fotoUrl'] as String?,
       );
 
   Sede copyWith({
@@ -40,6 +44,7 @@ class Sede {
     String? telefono,
     bool? activa,
     String? icono,
+    String? fotoUrl,
   }) {
     return Sede(
       id: id ?? this.id,
@@ -48,6 +53,7 @@ class Sede {
       telefono: telefono ?? this.telefono,
       activa: activa ?? this.activa,
       icono: icono ?? this.icono,
+      fotoUrl: fotoUrl ?? this.fotoUrl,
     );
   }
 }
