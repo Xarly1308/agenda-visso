@@ -310,11 +310,19 @@ class _AgendaViewState extends State<_AgendaView> {
   String? _ultimaSede;
   Set<String> _excepcionFechas = {};
   Map<String, String> _excepcionMotivos = {};
+  List<Cita> _citasHoy = [];
+  int _versionCitasAgenda = -1;
 
   @override
   void dispose() {
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _cargarCitasHoy() async {
+    final hoy = DateTime.now();
+    final citas = await _service.getCitasPorFecha(hoy);
+    if (mounted) setState(() => _citasHoy = citas);
   }
 
   void _scrollAPrimeraCita() {
@@ -363,6 +371,13 @@ class _AgendaViewState extends State<_AgendaView> {
       });
     }
 
+    if (_versionCitasAgenda != agenda.citasDelDia.length) {
+      _versionCitasAgenda = agenda.citasDelDia.length;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _cargarCitasHoy();
+      });
+    }
+
     final citasSede = sedeId == null
         ? citas
         : citas.where((c) => c.sedeId == sedeId).toList();
@@ -404,6 +419,7 @@ class _AgendaViewState extends State<_AgendaView> {
             if (picked != null) agenda.setFecha(picked);
           },
         ),
+        _buildResumenHoy(sedeId),
         const Divider(height: 8),
         if (agenda.cargando)
           const Expanded(child: Center(child: CircularProgressIndicator()))
@@ -491,6 +507,7 @@ class _AgendaViewState extends State<_AgendaView> {
     if (mounted) {
       setState(() {});
       _scrollAPrimeraCita();
+      _cargarCitasHoy();
     }
   }
 
@@ -524,6 +541,94 @@ class _AgendaViewState extends State<_AgendaView> {
             );
           }).toList(),
         ),
+      ),
+    );
+  }
+
+  Widget _buildResumenHoy(String? sedeId) {
+    final activas = _citasHoy.where((c) {
+      if (c.estado == 'cancelada') return false;
+      if (sedeId != null && c.sedeId != sedeId) return false;
+      return true;
+    }).toList();
+    final dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    final meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    final ahora = DateTime.now();
+    final tituloFecha = '${dias[ahora.weekday]} ${ahora.day} de ${meses[ahora.month - 1]}';
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxHeight: 160),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.today, size: 16, color: Colors.teal),
+              const SizedBox(width: 6),
+              Text('Citas de hoy $tituloFecha',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.teal)),
+              const Spacer(),
+              if (activas.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('${activas.length}',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.teal.shade700)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: activas.isEmpty
+                ? Center(
+                    child: Text('No hay citas programadas para hoy',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  )
+                : ListView.separated(
+                    itemCount: activas.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final c = activas[i];
+                      final color = c.estado == 'pendiente' ? Colors.orange : Colors.green;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 4, height: 4,
+                              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(formato12h(c.hora),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                c.pacienteNombre ?? '',
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: color.withAlpha(25),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(_estadoLabel(c.estado),
+                                  style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
