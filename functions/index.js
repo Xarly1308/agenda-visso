@@ -213,9 +213,19 @@ exports.enviarConfirmacion = functions.firestore
 // Programar con Cloud Scheduler: todos los días a las 8:00 AM
 // Endpoint: https://us-central1-agendavisso.cloudfunctions.net/enviarRecordatorios
 exports.enviarRecordatorios = functions.https.onRequest(async (req, res) => {
+  // Protección simple: aceptar GET (explorar) y POST (Scheduler)
+  if (req.method === 'POST' || req.method === 'GET') {
+    // OK
+  } else {
+    return res.status(405).send('Method not allowed');
+  }
+
   const manana = new Date();
   manana.setDate(manana.getDate() + 1);
   const mananaStr = manana.toISOString().split('T')[0];
+  const hoyNombre = manana.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  functions.logger.log(`Enviando recordatorios para mañana ${mananaStr}...`);
 
   const snapshot = await admin.firestore().collection('citas')
     .where('fecha', '==', mananaStr)
@@ -223,11 +233,15 @@ exports.enviarRecordatorios = functions.https.onRequest(async (req, res) => {
     .get();
 
   let enviados = 0;
+  let total = 0;
   for (const doc of snapshot.docs) {
+    total++;
     const cita = doc.data();
-    const sedeSnap = await admin.firestore().collection('sedes').doc(cita.sedeId).get();
+    const [sedeSnap, pacienteSnap] = await Promise.all([
+      admin.firestore().collection('sedes').doc(cita.sedeId).get(),
+      admin.firestore().collection('pacientes').doc(cita.pacienteId).get(),
+    ]);
     const sede = sedeSnap.data() || { nombre: 'Sede', direccion: '' };
-    const pacienteSnap = await admin.firestore().collection('pacientes').doc(cita.pacienteId).get();
     const paciente = pacienteSnap.data() || { nombres: 'Paciente', email: '' };
 
     if (!paciente.email) continue;
@@ -248,17 +262,18 @@ exports.enviarRecordatorios = functions.https.onRequest(async (req, res) => {
     try {
       await enviarCorreo({
         to: paciente.email,
-        subject: `Recordatorio: tienes cita mañana ${cita.hora} hs`,
+        subject: `Recordatorio: tienes cita mañana ${formatoHora12h(cita.hora)}`,
         html,
         citaId: doc.id,
       });
       enviados++;
     } catch (err) {
-      functions.logger.error('Error enviando recordatorio:', err);
+      functions.logger.error('Error enviando recordatorio a ${paciente.email}:', err);
     }
   }
 
-  res.status(200).send(`Recordatorios enviados: ${enviados}`);
+  functions.logger.log(`Recordatorios: ${enviados} enviados de ${total} citas para mañana`);
+  res.status(200).send(`Recordatorios enviados: ${enviados} de ${total}`);
 });
 
 // ─── RE-AGENDAMIENTO / CANCELACIÓN ────────────────────────
