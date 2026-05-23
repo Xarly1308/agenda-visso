@@ -15,6 +15,7 @@ import '../services/firestore_service.dart';
 import '../services/app_update_service.dart';
 import '../utils/colombian_holidays.dart';
 import '../utils/formato_hora.dart';
+import '../utils/calculador_slots.dart';
 import 'config_screen.dart';
 import '../widgets/calendar_header.dart';
 import 'nueva_cita_screen.dart';
@@ -857,7 +858,15 @@ class _AgendaViewState extends State<_AgendaView> {
                   agenda.cambiarEstadoCita(cita.id, 'confirmada');
                 },
               ),
-            if (cita.estado != 'cancelada')
+            if (cita.estado != 'cancelada') ...[
+              ListTile(
+                leading: const Icon(Icons.event, color: Colors.orange),
+                title: const Text('Reagendar'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _mostrarReagendar(cita);
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.cancel, color: Colors.red),
                 title: const Text('Cancelar'),
@@ -866,6 +875,7 @@ class _AgendaViewState extends State<_AgendaView> {
                   agenda.cambiarEstadoCita(cita.id, 'cancelada');
                 },
               ),
+            ],
             ListTile(
               leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
               title: const Text('Solicitar confirmación por WhatsApp'),
@@ -898,6 +908,76 @@ class _AgendaViewState extends State<_AgendaView> {
         ),
       ),
     );
+  }
+
+  Future<void> _mostrarReagendar(Cita cita) async {
+    final newDate = await showDatePicker(
+      context: context,
+      initialDate: cita.fecha,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
+      locale: const Locale('es'),
+    );
+    if (newDate == null || !mounted) return;
+
+    final horarios = await _service.getHorariosPorProfesional(cita.profesionalId);
+    final citasDelDia = await _service.getCitasPorFecha(newDate);
+    final horariosDelDia = horarios
+        .where((h) => h.sedeId == cita.sedeId && h.diaSemana == newDate.weekday)
+        .toList();
+    if (horariosDelDia.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay horarios disponibles para este día'), behavior: SnackBarBehavior.floating),
+        );
+      }
+      return;
+    }
+
+    final slots = CalculadorSlots.calcular(horariosDelDia: horariosDelDia, citasDelDia: citasDelDia, fecha: newDate);
+    if (slots.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay horarios disponibles para este día'), behavior: SnackBarBehavior.floating),
+        );
+      }
+      return;
+    }
+
+    final newHora = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Selecciona la nueva hora', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            const Divider(height: 1),
+            SizedBox(
+              height: 200,
+              child: ListView.builder(
+                itemCount: slots.length,
+                itemBuilder: (ctx, i) => ListTile(
+                  title: Text(slots[i]),
+                  onTap: () => Navigator.pop(ctx, slots[i]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (newHora == null || !mounted) return;
+
+    final agenda = context.read<AgendaProvider>();
+    await agenda.cambiarFechaHora(cita.id, newDate, newHora);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cita reagendada'), behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   String _estadoLabel(String e) {

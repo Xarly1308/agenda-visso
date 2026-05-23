@@ -81,6 +81,9 @@ class FirestoreService {
   Future<void> updateCitaNotificada(String id) =>
       _rest.updateCitaNotificada(id);
 
+  Future<void> updateCitaFechaHora(String id, String fecha, String hora) =>
+      _rest.updateCitaFechaHora(id, fecha, hora);
+
   Future<void> deleteCita(String id) => _rest.deleteCita(id);
 
   Future<void> deleteCitasEnRango(

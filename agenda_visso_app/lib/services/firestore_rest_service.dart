@@ -484,6 +484,10 @@ class FirestoreRestService {
     await _updateDocument('citas', id, {'notificada': true});
   }
 
+  Future<void> updateCitaFechaHora(String id, String fecha, String hora) async {
+    await _updateDocument('citas', id, {'fecha': fecha, 'hora': hora});
+  }
+
   Future<void> deleteCita(String id) async {
     final response = await _client.delete(
       _url('/citas/$id'),

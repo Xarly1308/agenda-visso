@@ -13,10 +13,10 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - **OTA**: `ota_update` package + GitHub Releases (PackageInstaller API, `usePackageInstaller: true`)
 
 ## Current State
-- Latest APK: **v1.2.8** — `https://github.com/Xarly1308/agenda-visso/releases/download/v1.2.8/app-release.apk`
-- OTA version doc: `app_version/latest` in Firestore (updated to 1.2.8)
-- `kAppVersion = '1.2.8'` in `config_screen.dart`
-- `pubspec.yaml version: 1.2.8+1`
+- Latest APK: **v1.2.9** — `https://github.com/Xarly1308/agenda-visso/releases/download/v1.2.9/app-release.apk`
+- OTA version doc: `app_version/latest` in Firestore (updated to 1.2.9)
+- `kAppVersion = '1.2.9'` in `config_screen.dart`
+- `pubspec.yaml version: 1.2.9+1`
 
 ## Fixes (May 23)
 - **Hoy no se podía agendar** — ambas apps usaban `hoy.add(Duration(days: 1))` como inicio del rango de fechas disponibles. Se cambió a `hoy` para incluir el día actual.
@@ -36,6 +36,13 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - Email template: logo (GitHub raw URL), sede-specific contact info (address + phone per sede), "Cita Agendada" title, cancel info
 - Resend configured: `resend.apikey` + `resend.from = "onboarding@resend.dev"` (test mode)
 - SMTP/nodemailer removed from dependencies
+
+## Email Flow
+- **`enviarConfirmacion`** → se dispara al crear una cita (`onCreate`). Envía email con "Cita Agendada" + push al profesional.
+- **`enviarReagendamiento`** → se dispara al actualizar una cita (`onUpdate`). Detecta dos casos:
+  - Cancelación (`estado` cambia a `'cancelada'`) → email "Cita Cancelada"
+  - Reagendamiento (`fecha` u `hora` cambian en cita no cancelada) → email "Cita Reagendada"
+- **`enviarRecordatorios`** → endpoint HTTP para Cloud Scheduler (no implementado aún). Consulta citas de mañana y envía recordatorio.
 
 ## Known Issues
 - **Push notifications not delivered on device** — Cloud Function sends push (logged "Push enviado al profesional"), but POCO C85 (MIUI) doesn't show notification. Likely MIUI battery optimization / notification settings. User hasn't confirmed after v1.2.7.

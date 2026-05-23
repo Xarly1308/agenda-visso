@@ -9,7 +9,7 @@ import 'excepciones_screen.dart';
 import 'resumen_horarios_screen.dart';
 import 'tipos_consulta_screen.dart';
 
-const String kAppVersion = '1.2.8';
+const String kAppVersion = '1.2.9';
 
 class ConfigScreen extends StatefulWidget {
   const ConfigScreen({super.key});
@@ -530,39 +530,58 @@ class _DownloadDialogState extends State<_DownloadDialog> {
     if (!mounted) return;
     setState(() {
       _termino = true;
-      _estado = ok ? 'Instalación completada' : 'Error al actualizar';
+      if (ok) {
+        _estado = 'Actualización descargada.';
+        _progreso = 1.0;
+      } else {
+        _estado = 'Error al actualizar';
+      }
     });
-    if (ok) {
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) Navigator.of(context).pop();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Actualizando'),
+      title: Text(_termino && _progreso == 1.0 ? 'Actualización lista' : 'Actualizando'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          LinearProgressIndicator(value: _progreso > 0 ? _progreso : null),
-          const SizedBox(height: 16),
-          Text(_estado),
-          if (_progreso > 0)
-            Text('${(_progreso * 100).toStringAsFixed(0)}%',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           if (!_termino) ...[
+            LinearProgressIndicator(value: _progreso > 0 ? _progreso : null),
+            const SizedBox(height: 16),
+            Text(_estado),
+            if (_progreso > 0)
+              Text('${(_progreso * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 16),
             const Text('No cierres la aplicación', style: TextStyle(fontSize: 12, color: Colors.orange)),
           ],
-          if (_termino)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cerrar'),
-              ),
+          if (_termino && _progreso == 1.0) ...[
+            const Icon(Icons.check_circle, color: Colors.green, size: 48),
+            const SizedBox(height: 12),
+            const Text('La descarga ha finalizado.'),
+            const SizedBox(height: 4),
+            Text(_estado, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 8),
+            const Text('Android mostrará una ventana para instalar.\n'
+                'Presiona "Instalar" y la app se reiniciará sola.',
+                style: TextStyle(fontSize: 13, color: Colors.grey), textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cerrar'),
             ),
+          ],
+          if (_termino && _progreso < 1.0) ...[
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 12),
+            Text(_estado),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ],
         ],
       ),
     );

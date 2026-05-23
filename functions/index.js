@@ -47,10 +47,18 @@ const SEDES_CONTACTO = {
   },
 };
 
-const LOGO_URL = 'https://raw.githubusercontent.com/Xarly1308/agenda-visso/main/agenda_visso_app/assets/visso_logo.png';
+const LOGO_URL = 'https://raw.githubusercontent.com/Xarly1308/agenda-visso/main/agenda_visso_paciente/assets/logo-visso-white-tr.png';
 
-function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, mensajePersonalizado, esCancelacion }) {
+function formatoHora12h(hora24) {
+  const [h, m] = hora24.split(':').map(Number);
+  const periodo = h >= 12 ? 'PM' : 'AM';
+  const h12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+  return `${h12}:${m.toString().padStart(2, '0')} ${periodo}`;
+}
+
+function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, mensajePersonalizado, esCancelacion, esReagendamiento }) {
   const contacto = SEDES_CONTACTO[sede.id] || {};
+  const horaFormateada = formatoHora12h(hora);
   return `
   <!DOCTYPE html>
   <html>
@@ -58,18 +66,20 @@ function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, m
   <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;">
     <table role="presentation" style="width:100%;max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;">
       <tr>
-        <td style="background:#009688;padding:24px 30px;text-align:center;">
-          <img src="${LOGO_URL}" alt="Visso" style="height:48px;" />
+        <td style="background:#2a4379;padding:24px 30px;text-align:center;">
+          <img src="${LOGO_URL}" alt="Visso" style="height:52px;" />
           <h1 style="color:white;margin:12px 0 0;font-size:22px;">${titulo}</h1>
         </td>
       </tr>
       <tr>
         <td style="padding:30px;">
           <p style="font-size:16px;margin:0 0 16px;">Hola <strong>${nombrePaciente}</strong>,</p>
-          <p style="font-size:16px;margin:0 0 20px;">${esCancelacion ? 'Tu cita ha sido cancelada.' : 'Tu cita ha sido agendada exitosamente:'}</p>
+          <p style="font-size:16px;margin:0 0 20px;">
+            ${esCancelacion ? 'Tu cita ha sido cancelada.' : esReagendamiento ? 'Tu cita ha sido reagendada:' : 'Tu cita ha sido agendada exitosamente:'}
+          </p>
           <table role="presentation" style="width:100%;background:#e0f2f1;border-radius:8px;padding:20px;margin:0 0 20px;">
             <tr><td style="padding:4px 0;"><strong>Fecha:</strong> ${fechaFormateada}</td></tr>
-            <tr><td style="padding:4px 0;"><strong>Hora:</strong> ${hora} hs</td></tr>
+            <tr><td style="padding:4px 0;"><strong>Hora:</strong> ${horaFormateada}</td></tr>
             <tr><td style="padding:4px 0;"><strong>Sede:</strong> ${sede.nombre}</td></tr>
             <tr><td style="padding:4px 0;"><strong>Dirección:</strong> ${contacto.direccion || sede.direccion}</td></tr>
             <tr><td style="padding:4px 0;"><strong>Teléfono:</strong> ${contacto.telefono || ''}</td></tr>
@@ -79,7 +89,7 @@ function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, m
           <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;" />
           <p style="font-size:14px;color:#666;margin:0;">
             <strong>¿Necesitas cancelar o reagendar?</strong><br/>
-            Comunícate con nosotros al <strong>${contacto.telefono || 'nuestra línea de atención'}</strong>
+            Llama o escríbenos al Whatsapp <strong>315 342 5703</strong>
           </p>
           ` : ''}
           <p style="font-size:12px;color:#999;margin-top:24px;text-align:center;">
@@ -149,7 +159,7 @@ exports.enviarConfirmacion = functions.firestore
           await Promise.race([
             enviarCorreo({
               to: paciente.email,
-              subject: `Cita confirmada - ${sede.nombre} - ${cita.hora} hs`,
+              subject: `Cita confirmada - ${sede.nombre} - ${formatoHora12h(cita.hora)}`,
               html,
               citaId: context.params.citaId,
             }),
@@ -251,36 +261,48 @@ exports.enviarRecordatorios = functions.https.onRequest(async (req, res) => {
   res.status(200).send(`Recordatorios enviados: ${enviados}`);
 });
 
-// ─── RE-AGENDAMIENTO ──────────────────────────────────────
+// ─── RE-AGENDAMIENTO / CANCELACIÓN ────────────────────────
 exports.enviarReagendamiento = functions.firestore
   .document('citas/{citaId}')
   .onUpdate(async (change, context) => {
     const antes = change.before.data();
     const despues = change.after.data();
 
+    // Cancelación
     if (antes.estado !== 'cancelada' && despues.estado === 'cancelada') {
       const { cita, sede, paciente } = await obtenerDatosCita(context.params.citaId);
-
       if (!paciente.email) return;
-
       const fechaFormateada = formatearFecha(cita.fecha);
       const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
-
       const html = plantillaEmail({
-        titulo: 'Cita Cancelada',
-        nombrePaciente,
-        fechaFormateada,
-        hora: cita.hora,
-        sede,
+        titulo: 'Cita Cancelada', nombrePaciente, fechaFormateada, hora: cita.hora, sede,
         esCancelacion: true,
       });
-
       try {
         await enviarCorreo({
-          to: paciente.email,
-          subject: `Cita cancelada - Reagenda cuando quieras`,
-          html,
-          citaId: context.params.citaId,
+          to: paciente.email, subject: `Cita cancelada - Reagenda cuando quieras`, html, citaId: context.params.citaId,
+        });
+        functions.logger.log(`Cancelación enviada a ${paciente.email}`);
+      } catch (err) {
+        functions.logger.error('Error enviando cancelación:', err);
+      }
+      return;
+    }
+
+    // Reagendamiento (cambio de fecha u hora en cita no cancelada)
+    const fechaCambio = antes.fecha !== despues.fecha || antes.hora !== despues.hora;
+    if (fechaCambio && despues.estado !== 'cancelada') {
+      const { cita, sede, paciente } = await obtenerDatosCita(context.params.citaId);
+      if (!paciente.email) return;
+      const fechaFormateada = formatearFecha(cita.fecha);
+      const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
+      const html = plantillaEmail({
+        titulo: 'Cita Reagendada', nombrePaciente, fechaFormateada, hora: cita.hora, sede,
+        esReagendamiento: true,
+      });
+      try {
+        await enviarCorreo({
+          to: paciente.email, subject: `Tu cita ha sido reagendada - ${sede.nombre} - ${formatoHora12h(cita.hora)}`, html, citaId: context.params.citaId,
         });
         functions.logger.log(`Reagendamiento enviado a ${paciente.email}`);
       } catch (err) {

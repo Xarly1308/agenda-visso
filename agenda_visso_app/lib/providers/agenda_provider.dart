@@ -124,6 +124,12 @@ class AgendaProvider extends ChangeNotifier {
     await cargarCitas(_fechaSeleccionada);
   }
 
+  Future<void> cambiarFechaHora(String citaId, DateTime fecha, String hora) async {
+    final fechaStr = fecha.toIso8601String().split('T')[0];
+    await _service.updateCitaFechaHora(citaId, fechaStr, hora);
+    await cargarCitas(_fechaSeleccionada);
+  }
+
   Future<void> eliminarCita(String citaId) async {
     await _service.deleteCita(citaId);
     await cargarCitas(_fechaSeleccionada);
