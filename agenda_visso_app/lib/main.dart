@@ -14,14 +14,10 @@ import 'screens/dashboard_screen.dart';
 import 'widgets/splash_screen.dart';
 import 'utils/es_localizations.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  try {
-    await NotificacionService.init();
-  } catch (e) {
-    debugPrint('Error initializing NotificacionService: $e');
-  }
+  NotificacionService.init().catchError((e) => debugPrint('NotificacionService.init error: $e'));
   runApp(const AgendaVissoApp());
 }
 
