@@ -6,3 +6,10 @@ String formato12h(String hora24) {
   final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
   return '$h12:$m $periodo';
 }
+
+String formatoFecha(DateTime fecha) {
+  final d = fecha.day.toString().padLeft(2, '0');
+  final m = fecha.month.toString().padLeft(2, '0');
+  final y = fecha.year.toString();
+  return '$d/$m/$y';
+}

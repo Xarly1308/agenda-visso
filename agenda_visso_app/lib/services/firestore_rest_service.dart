@@ -690,7 +690,8 @@ class FirestoreRestService {
   }
 
   Future<void> addNotificacion(Notificacion notificacion) async {
-    await _setDocument('notificaciones', notificacion.id, notificacion.toMap());
+    final id = notificacion.id.isEmpty ? _uuid.v4() : notificacion.id;
+    await _setDocument('notificaciones', id, notificacion.copyWith(id: id).toMap());
   }
 
   Future<void> marcarNotificacionesLeidas(String profesionalId) async {

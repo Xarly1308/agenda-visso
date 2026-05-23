@@ -1,34 +1,16 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
 
 admin.initializeApp();
 
-// Configuración SMTP desde variables de entorno de Firebase
-// Configurar con: firebase functions:config:set smtp.host="..." smtp.user="..." smtp.pass="..." smtp.from="..."
-function getSMTPConfig() {
-  const config = functions.config().smtp || {};
+// Configuración Resend
+// firebase functions:config:set resend.apikey="re_xxx" resend.from="onboarding@resend.dev"
+function getResendConfig() {
+  const config = functions.config().resend || {};
   return {
-    host: config.host || 'smtp.gmail.com',
-    port: parseInt(config.port || '587'),
-    user: config.user || '',
-    pass: config.pass || '',
-    fromName: config.from_name || 'Agenda Visso',
-    fromEmail: config.from || '',
+    apiKey: config.apikey || '',
+    from: config.from || '',
   };
-}
-
-function crearTransporte() {
-  const smtp = getSMTPConfig();
-  return nodemailer.createTransport({
-    host: smtp.host,
-    port: smtp.port,
-    secure: smtp.port === 465,
-    auth: {
-      user: smtp.user,
-      pass: smtp.pass,
-    },
-  });
 }
 
 async function obtenerDatosCita(citaId) {
@@ -52,87 +34,166 @@ function formatearFecha(fechaStr) {
   return fecha.toLocaleDateString('es-ES', opciones);
 }
 
+const SEDES_CONTACTO = {
+  'acropolis-visso': {
+    telefono: '315 342 5703',
+    direccion: 'Cra 45 #24-26, Barrio Quintaparedes, Bogotá D.C.',
+  },
+  'visso-funza': {
+    telefono: '(601) 823-7298 - 315 342 5703',
+    direccion: 'Cra 13 #16-85, C.C Micentro Funza. Funza, Cundinamarca',
+  },
+};
+
+const LOGO_URL = 'https://raw.githubusercontent.com/Xarly1308/agenda-visso/main/agenda_visso_app/assets/visso_logo.png';
+
+function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, mensajePersonalizado, esCancelacion }) {
+  const contacto = SEDES_CONTACTO[sede.id] || {};
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head><meta charset="utf-8"></head>
+  <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;">
+    <table role="presentation" style="width:100%;max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;">
+      <tr>
+        <td style="background:#009688;padding:24px 30px;text-align:center;">
+          <img src="${LOGO_URL}" alt="Visso" style="height:48px;" />
+          <h1 style="color:white;margin:12px 0 0;font-size:22px;">${titulo}</h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:30px;">
+          <p style="font-size:16px;margin:0 0 16px;">Hola <strong>${nombrePaciente}</strong>,</p>
+          <p style="font-size:16px;margin:0 0 20px;">${esCancelacion ? 'Tu cita ha sido cancelada.' : 'Tu cita ha sido agendada exitosamente:'}</p>
+          <table role="presentation" style="width:100%;background:#e0f2f1;border-radius:8px;padding:20px;margin:0 0 20px;">
+            <tr><td style="padding:4px 0;"><strong>Fecha:</strong> ${fechaFormateada}</td></tr>
+            <tr><td style="padding:4px 0;"><strong>Hora:</strong> ${hora} hs</td></tr>
+            <tr><td style="padding:4px 0;"><strong>Sede:</strong> ${sede.nombre}</td></tr>
+            <tr><td style="padding:4px 0;"><strong>Dirección:</strong> ${contacto.direccion || sede.direccion}</td></tr>
+            <tr><td style="padding:4px 0;"><strong>Teléfono:</strong> ${contacto.telefono || ''}</td></tr>
+          </table>
+          ${mensajePersonalizado ? `<p style="font-style:italic;color:#666;margin:0 0 16px;">${mensajePersonalizado}</p>` : ''}
+          ${!esCancelacion ? `
+          <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;" />
+          <p style="font-size:14px;color:#666;margin:0;">
+            <strong>¿Necesitas cancelar o reagendar?</strong><br/>
+            Comunícate con nosotros al <strong>${contacto.telefono || 'nuestra línea de atención'}</strong>
+          </p>
+          ` : ''}
+          <p style="font-size:12px;color:#999;margin-top:24px;text-align:center;">
+            Visso Optometría — ${sede.nombre}
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+  </html>`;
+}
+
 async function enviarCorreo({ to, subject, html, citaId }) {
   if (!to) {
     functions.logger.warn(`Sin destinatario para cita ${citaId}`);
     return null;
   }
 
-  const smtp = getSMTPConfig();
-  const transporter = crearTransporte();
-  return transporter.sendMail({
-    from: `"${smtp.fromName}" <${smtp.fromEmail}>`,
-    to,
-    subject,
-    html,
+  const { apiKey, from } = getResendConfig();
+  if (!apiKey || !from) {
+    functions.logger.warn('Resend no configurado: faltan apiKey o from');
+    return null;
+  }
+
+  const respuesta = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from, to: [to], subject, html }),
   });
+
+  if (!respuesta.ok) {
+    const texto = await respuesta.text();
+    throw new Error(`Resend error ${respuesta.status}: ${texto}`);
+  }
+
+  return respuesta.json();
 }
 
 // ─── CONFIRMACIÓN ────────────────────────────────────────
 exports.enviarConfirmacion = functions.firestore
   .document('citas/{citaId}')
   .onCreate(async (snap, context) => {
-    const { cita, sede, paciente } = await obtenerDatosCita(context.params.citaId);
-    const fechaFormateada = formatearFecha(cita.fecha);
-    const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
-
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8"></head>
-    <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden;">
-        <div style="background: #009688; padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 24px;">Cita Confirmada</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px;">Hola <strong>${nombrePaciente}</strong>,</p>
-          <p style="font-size: 16px;">Tu cita ha sido agendada exitosamente:</p>
-          <div style="background: #e0f2f1; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <p style="margin: 4px 0;"><strong>Fecha:</strong> ${fechaFormateada}</p>
-            <p style="margin: 4px 0;"><strong>Hora:</strong> ${cita.hora} hs</p>
-            <p style="margin: 4px 0;"><strong>Sede:</strong> ${sede.nombre}</p>
-            <p style="margin: 4px 0;"><strong>Dirección:</strong> ${sede.direccion}</p>
-          </div>
-          ${cita.mensajePersonalizado ? `<p style="font-style: italic; color: #666;">${cita.mensajePersonalizado}</p>` : ''}
-          <p style="font-size: 14px; color: #888; margin-top: 20px;">
-            Si no puedes asistir, por favor cancela tu cita llamando a recepción.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>`;
-
     try {
-      await enviarCorreo({
-        to: paciente.email,
-        subject: `Cita confirmada - ${sede.nombre} - ${cita.hora} hs`,
-        html,
-        citaId: context.params.citaId,
-      });
-      await snap.ref.update({ notificada: true });
-      functions.logger.log(`Confirmación enviada a ${paciente.email}`);
-    } catch (err) {
-      functions.logger.error('Error enviando confirmación:', err);
-    }
+      const { cita, sede, paciente } = await Promise.race([
+        obtenerDatosCita(context.params.citaId),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout obteniendo datos')), 25000)),
+      ]);
+      const fechaFormateada = formatearFecha(cita.fecha);
+      const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
 
-    // Enviar notificación push al profesional
-    try {
-      const nombrePaciente = (paciente.nombres || 'Paciente').split(' ').slice(0, 2).join(' ');
-      await admin.messaging().send({
-        topic: 'profesional_notificaciones',
-        notification: {
-          title: 'Nueva cita agendada',
-          body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}`,
-        },
-        data: {
-          tipo: 'nueva_cita',
-          citaId: context.params.citaId,
-        },
+      const html = plantillaEmail({
+        titulo: 'Cita Agendada',
+        nombrePaciente,
+        fechaFormateada,
+        hora: cita.hora,
+        sede,
+        mensajePersonalizado: cita.mensajePersonalizado,
+        esCancelacion: false,
       });
-      functions.logger.log('Push enviado al profesional');
+
+      // Solo intentar email si hay destinatario
+      if (paciente.email) {
+        try {
+          await Promise.race([
+            enviarCorreo({
+              to: paciente.email,
+              subject: `Cita confirmada - ${sede.nombre} - ${cita.hora} hs`,
+              html,
+              citaId: context.params.citaId,
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout email')), 15000)),
+          ]);
+          functions.logger.log(`Confirmación enviada a ${paciente.email}`);
+        } catch (err) {
+          functions.logger.error('Error enviando confirmación:', err);
+        }
+      } else {
+        functions.logger.warn(`Sin email para cita ${context.params.citaId}`);
+      }
+
+      // Enviar notificación push al profesional
+      try {
+        const nombrePaciente = (paciente.nombres || 'Paciente').split(' ').slice(0, 2).join(' ');
+        await Promise.race([
+          admin.messaging().send({
+            topic: 'profesional_notificaciones',
+            notification: {
+              title: 'Nueva cita agendada',
+              body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}`,
+            },
+            data: {
+              tipo: 'nueva_cita',
+              citaId: context.params.citaId,
+            },
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout push')), 15000)),
+        ]);
+        functions.logger.log('Push enviado al profesional');
+      } catch (err) {
+        functions.logger.error('Error enviando push:', err);
+      }
+
+      // Marcar como notificada
+      try {
+        await Promise.race([
+          snap.ref.update({ notificada: true }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout update')), 10000)),
+        ]);
+      } catch (err) {
+        functions.logger.error('Error actualizando notificada:', err);
+      }
     } catch (err) {
-      functions.logger.error('Error enviando push:', err);
+      functions.logger.error('Error en enviarConfirmacion:', err);
     }
   });
 
@@ -162,29 +223,15 @@ exports.enviarRecordatorios = functions.https.onRequest(async (req, res) => {
     const fechaFormateada = formatearFecha(cita.fecha);
     const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
 
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8"></head>
-    <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden;">
-        <div style="background: #1565c0; padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 24px;">Recordatorio de Cita</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px;">Hola <strong>${nombrePaciente}</strong>,</p>
-          <p style="font-size: 16px;">Te recordamos que mañana tienes una cita:</p>
-          <div style="background: #e3f2fd; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <p style="margin: 4px 0;"><strong>Fecha:</strong> ${fechaFormateada}</p>
-            <p style="margin: 4px 0;"><strong>Hora:</strong> ${cita.hora} hs</p>
-            <p style="margin: 4px 0;"><strong>Sede:</strong> ${sede.nombre}</p>
-            <p style="margin: 4px 0;"><strong>Dirección:</strong> ${sede.direccion}</p>
-          </div>
-          <p style="font-size: 14px; color: #666;">Por favor llega 10 minutos antes de tu hora agendada.</p>
-        </div>
-      </div>
-    </body>
-    </html>`;
+    const html = plantillaEmail({
+      titulo: 'Recordatorio de Cita',
+      nombrePaciente,
+      fechaFormateada,
+      hora: cita.hora,
+      sede,
+      mensajePersonalizado: 'Por favor llega 10 minutos antes de tu hora agendada.',
+      esCancelacion: false,
+    });
 
     try {
       await enviarCorreo({
@@ -217,27 +264,14 @@ exports.enviarReagendamiento = functions.firestore
       const fechaFormateada = formatearFecha(cita.fecha);
       const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
 
-      const html = `
-      <!DOCTYPE html>
-      <html>
-      <head><meta charset="utf-8"></head>
-      <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
-        <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden;">
-          <div style="background: #e65100; padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Cita Cancelada</h1>
-          </div>
-          <div style="padding: 30px;">
-            <p style="font-size: 16px;">Hola <strong>${nombrePaciente}</strong>,</p>
-            <p style="font-size: 16px;">Tu cita del <strong>${fechaFormateada}</strong> a las <strong>${cita.hora} hs</strong> en <strong>${sede.nombre}</strong> ha sido cancelada.</p>
-            <p style="font-size: 16px;">Si deseas reagendar, puedes agendar una nueva cita escaneando el código QR en recepción o contactándonos directamente.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="https://agendavisso.web.app" style="background: #e65100; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-size: 16px;">Agendar nueva cita</a>
-            </div>
-            <p style="font-size: 14px; color: #888;">Disculpa las molestias. Estamos para ayudarte.</p>
-          </div>
-        </div>
-      </body>
-      </html>`;
+      const html = plantillaEmail({
+        titulo: 'Cita Cancelada',
+        nombrePaciente,
+        fechaFormateada,
+        hora: cita.hora,
+        sede,
+        esCancelacion: true,
+      });
 
       try {
         await enviarCorreo({

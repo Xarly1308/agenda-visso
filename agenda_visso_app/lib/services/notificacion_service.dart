@@ -166,7 +166,7 @@ class NotificacionService {
     SystemSound.play(SystemSoundType.alert);
 
     final mensaje =
-        'Nueva cita agendada: ${cita.fecha} a las ${formato12h(cita.hora)}';
+        'Nueva cita agendada: ${formatoFecha(cita.fecha)} a las ${formato12h(cita.hora)}';
     final tipo = 'nueva_cita';
 
     final existentes = await _rest.getNotificaciones(profesionalId);
@@ -185,16 +185,20 @@ class NotificacionService {
       );
     }
 
-    await _rest.addNotificacion(
-      Notificacion(
-        id: '',
-        profesionalId: profesionalId,
-        citaId: cita.id,
-        tipo: tipo,
-        mensaje: mensaje,
-        subtitulo: creadoPor != null ? 'Desde la app' : 'Desde la web',
-      ),
-    );
+    try {
+      await _rest.addNotificacion(
+        Notificacion(
+          id: '',
+          profesionalId: profesionalId,
+          citaId: cita.id,
+          tipo: tipo,
+          mensaje: mensaje,
+          subtitulo: creadoPor != null ? 'Desde la app' : 'Desde la web',
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error adding notification: $e');
+    }
   }
 
   static void _onCitaModified(
@@ -204,10 +208,10 @@ class NotificacionService {
     String tipo;
 
     if (estado == 'cancelada') {
-      mensaje = 'Cita cancelada: ${cita.fecha} a las ${formato12h(cita.hora)}';
+      mensaje = 'Cita cancelada: ${formatoFecha(cita.fecha)} a las ${formato12h(cita.hora)}';
       tipo = 'cancelada';
     } else if (estado == 'confirmada') {
-      mensaje = 'Cita confirmada: ${cita.fecha} a las ${formato12h(cita.hora)}';
+      mensaje = 'Cita confirmada: ${formatoFecha(cita.fecha)} a las ${formato12h(cita.hora)}';
       tipo = 'confirmada';
     } else {
       return;
@@ -229,16 +233,20 @@ class NotificacionService {
       );
     }
 
-    await _rest.addNotificacion(
-      Notificacion(
-        id: '',
-        profesionalId: profesionalId,
-        citaId: cita.id,
-        tipo: tipo,
-        mensaje: mensaje,
-        subtitulo: 'Desde la web',
-      ),
-    );
+    try {
+      await _rest.addNotificacion(
+        Notificacion(
+          id: '',
+          profesionalId: profesionalId,
+          citaId: cita.id,
+          tipo: tipo,
+          mensaje: mensaje,
+          subtitulo: 'Desde la web',
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error adding notification: $e');
+    }
   }
 
   static void detenerMonitoreo() {

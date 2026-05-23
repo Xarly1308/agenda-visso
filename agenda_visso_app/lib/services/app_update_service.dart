@@ -74,12 +74,13 @@ class AppUpdateService {
   Future<bool> downloadUpdate(String url, {void Function(double progress, String status)? onProgress}) async {
     try {
       final ota = OtaUpdate();
-      final stream = ota.execute(url, destinationFilename: 'app-release.apk', usePackageInstaller: false);
-      await for (final event in stream) {
+      final stream = ota.execute(url, destinationFilename: 'app-release.apk', usePackageInstaller: true);
+      final timedStream = stream.timeout(const Duration(seconds: 60));
+      await for (final event in timedStream) {
         final p = double.tryParse(event.value ?? '') ?? 0;
         onProgress?.call(p / 100, event.status.name);
         if (event.status == OtaStatus.INSTALLING) {
-          await Future.delayed(const Duration(milliseconds: 500));
+          await Future.delayed(const Duration(seconds: 2));
           break;
         }
         if (event.status == OtaStatus.INSTALLATION_ERROR) return false;

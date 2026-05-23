@@ -9,7 +9,7 @@ import 'excepciones_screen.dart';
 import 'resumen_horarios_screen.dart';
 import 'tipos_consulta_screen.dart';
 
-const String kAppVersion = '1.2.3';
+const String kAppVersion = '1.2.7';
 
 class ConfigScreen extends StatefulWidget {
   const ConfigScreen({super.key});
@@ -329,10 +329,20 @@ Future<void> _buscarActualizacion(BuildContext context) async {
     ),
   );
   if (descargar != true || !context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Descargando actualización...'), behavior: SnackBarBehavior.floating),
+
+  double progreso = 0;
+  String estado = 'Descargando...';
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) {
+      return PopScope(
+        canPop: false,
+        child: _DownloadDialog(service: service, apkUrl: apkUrl),
+      );
+    },
   );
-  await service.downloadUpdate(apkUrl);
 }
 
 void _confirmarLimpiar(BuildContext context, String tipo) {
@@ -484,6 +494,79 @@ class _InfoColeccion {
   final String nombre;
   final String descripcion;
   const _InfoColeccion(this.icono, this.nombre, this.descripcion);
+}
+
+class _DownloadDialog extends StatefulWidget {
+  final AppUpdateService service;
+  final String apkUrl;
+  const _DownloadDialog({required this.service, required this.apkUrl});
+
+  @override
+  State<_DownloadDialog> createState() => _DownloadDialogState();
+}
+
+class _DownloadDialogState extends State<_DownloadDialog> {
+  double _progreso = 0;
+  String _estado = 'Conectando...';
+  bool _termino = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _iniciar();
+  }
+
+  Future<void> _iniciar() async {
+    final ok = await widget.service.downloadUpdate(
+      widget.apkUrl,
+      onProgress: (p, s) {
+        if (!mounted) return;
+        setState(() {
+          _progreso = p;
+          _estado = s == 'INSTALLING' ? 'Instalando...' : 'Descargando...';
+        });
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      _termino = true;
+      _estado = ok ? 'Instalación completada' : 'Error al actualizar';
+    });
+    if (ok) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Actualizando'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LinearProgressIndicator(value: _progreso > 0 ? _progreso : null),
+          const SizedBox(height: 16),
+          Text(_estado),
+          if (_progreso > 0)
+            Text('${(_progreso * 100).toStringAsFixed(0)}%',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          if (!_termino) ...[
+            const SizedBox(height: 16),
+            const Text('No cierres la aplicación', style: TextStyle(fontSize: 12, color: Colors.orange)),
+          ],
+          if (_termino)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cerrar'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 Future<void> _enviarInvitacionWhatsApp(BuildContext context) async {
