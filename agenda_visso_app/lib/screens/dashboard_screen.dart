@@ -74,6 +74,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     NotificacionService.monitorearCitas(context: context, profesionalId: uid);
     _mostrarFestivosProximos();
     _verificarActualizacion();
+    _verificarOTACompletada();
+  }
+
+  Future<void> _verificarOTACompletada() async {
+    final prefs = await SharedPreferences.getInstance();
+    final versionAnterior = prefs.getString('ota_attempted_version');
+    if (versionAnterior == null || versionAnterior == kAppVersion) return;
+    await prefs.remove('ota_attempted_version');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Actualización completada: v$kAppVersion instalada correctamente.'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _verificarActualizacion() async {
@@ -125,6 +142,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (shouldDownload != true || !mounted) return;
 
+      await (await SharedPreferences.getInstance()).setString('ota_attempted_version', kAppVersion);
+
       final exito = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -132,16 +151,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       if (!mounted) return;
-      if (exito != true) {
+      if (exito == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Actualización descargada. Android te pedirá confirmar la instalación.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
         final p = await SharedPreferences.getInstance();
         await p.remove('last_notified_version');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error al descargar la actualización. Se reintentará al reiniciar.'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error al descargar la actualización. Se reintentará al reiniciar.'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } catch (_) {}
   }

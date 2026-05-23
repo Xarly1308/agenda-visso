@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../providers/agenda_provider.dart';
 import '../services/app_update_service.dart';
@@ -329,6 +330,8 @@ Future<void> _buscarActualizacion(BuildContext context) async {
     ),
   );
   if (descargar != true || !context.mounted) return;
+
+  SharedPreferences.getInstance().then((p) => p.setString('ota_attempted_version', kAppVersion));
 
   double progreso = 0;
   String estado = 'Descargando...';
