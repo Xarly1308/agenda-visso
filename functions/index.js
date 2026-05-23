@@ -3,6 +3,8 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
+
+
 // Configuración Resend
 // firebase functions:config:set resend.apikey="re_xxx" resend.from="onboarding@resend.dev"
 function getResendConfig() {
