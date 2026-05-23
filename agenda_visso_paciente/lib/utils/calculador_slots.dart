@@ -8,6 +8,7 @@ class CalculadorSlots {
   static List<String> calcular({
     required List<Horario> horariosDelDia,
     required List<Cita> citasDelDia,
+    DateTime? fecha,
   }) {
     final ocupados = citasDelDia
         .where((c) => c.estado != 'cancelada')
@@ -15,12 +16,15 @@ class CalculadorSlots {
         .toSet();
 
     final slots = <String>{};
+    final esHoy = fecha != null && _esMismoDia(fecha, DateTime.now());
+    final ahoraMinutos = DateTime.now().hour * 60 + DateTime.now().minute;
 
     for (final horario in horariosDelDia) {
       final inicio = _horaToMinutos(horario.horaInicio);
       final fin = _horaToMinutos(horario.horaFin);
 
       for (int m = inicio; m < fin; m += duracionSlotMinutos) {
+        if (esHoy && m <= ahoraMinutos) continue;
         final hora = _minutosToHora(m);
         slots.add(hora);
       }
@@ -31,6 +35,10 @@ class CalculadorSlots {
     final resultado = slots.toList();
     resultado.sort();
     return resultado;
+  }
+
+  static bool _esMismoDia(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   static int _horaToMinutos(String hora) {

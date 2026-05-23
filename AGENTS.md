@@ -18,6 +18,10 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - `kAppVersion = '1.2.7'` in `config_screen.dart`
 - `pubspec.yaml version: 1.2.7+1`
 
+## Fixes (May 23)
+- **Hoy no se podía agendar** — ambas apps usaban `hoy.add(Duration(days: 1))` como inicio del rango de fechas disponibles. Se cambió a `hoy` para incluir el día actual.
+- **Slots pasados visibles para el día de hoy** — `calculador_slots.dart` ahora acepta `DateTime? fecha` y filtra slots cuya hora ya pasó (solo cuando `fecha` es el día actual).
+
 ## Key Implementation Details
 - Single-professional: auto-selects first professional with horarios from Firestore
 - Colombian locale: Spanish, AM/PM, numeric document, phone 10 digits, Colombian holidays

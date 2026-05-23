@@ -58,10 +58,12 @@ class AgendaProvider extends ChangeNotifier {
 
   Future<void> calcularSlots({
     required List<Horario> horariosDelDia,
+    DateTime? fecha,
   }) async {
     _slotsDisponibles = CalculadorSlots.calcular(
       horariosDelDia: horariosDelDia,
       citasDelDia: _citasDelDia,
+      fecha: fecha,
     );
     notifyListeners();
   }

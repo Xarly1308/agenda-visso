@@ -92,7 +92,7 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
     final horarios = await _service.getHorariosPorProfesional(_profesionalId!);
     final excepciones = await _service.getExcepciones(_profesionalId!);
     final hoy = DateTime.now();
-    _desde = hoy.add(const Duration(days: 1));
+    _desde = hoy;
     _hasta = DateTime(hoy.year, hoy.month + 3, hoy.day);
     final diasLaborales = CalculadorSlots.diasLaborales(
       horariosDelProfesional: horarios,
@@ -126,6 +126,7 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
     _slotsDisponibles = CalculadorSlots.calcular(
       horariosDelDia: horariosDelDia,
       citasDelDia: citasDelDia,
+      fecha: fecha,
     );
 
     setState(() => _cargando = false);

@@ -139,7 +139,7 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
       _fechasDisponibles = [];
       _fechasNoDisponibles.clear();
       
-      final desde = hoy.add(const Duration(days: 1));
+      final desde = hoy;
       var actual = desde;
       while (!actual.isAfter(tresMeses)) {
         final fechaStr = actual.toIso8601String().split('T')[0];
@@ -185,6 +185,7 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
       _slotsDisponibles = CalculadorSlots.calcular(
         horariosDelDia: horariosDelDia,
         citasDelDia: citas,
+        fecha: fecha,
       );
 
       setState(() => _cargandoHoras = false);
