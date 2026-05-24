@@ -31,14 +31,14 @@ class Notificacion {
       };
 
   factory Notificacion.fromMap(Map<String, dynamic> map) => Notificacion(
-        id: map['id'] as String,
-        profesionalId: map['profesionalId'] as String,
-        citaId: map['citaId'] as String,
-        tipo: map['tipo'] as String,
-        mensaje: map['mensaje'] as String,
-        subtitulo: map['subtitulo'] as String,
+        id: map['id'] as String? ?? '',
+        profesionalId: map['profesionalId'] as String? ?? '',
+        citaId: map['citaId'] as String? ?? '',
+        tipo: map['tipo'] as String? ?? '',
+        mensaje: map['mensaje'] as String? ?? '',
+        subtitulo: map['subtitulo'] as String? ?? '',
         leida: map['leida'] as bool? ?? false,
-        fechaCreacion: DateTime.parse(map['fechaCreacion'] as String),
+        fechaCreacion: DateTime.tryParse(map['fechaCreacion'] as String? ?? '') ?? DateTime.now(),
       );
 
   Notificacion copyWith({

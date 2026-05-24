@@ -25,12 +25,12 @@ class Horario {
       };
 
   factory Horario.fromMap(Map<String, dynamic> map) => Horario(
-        id: map['id'] as String,
-        profesionalId: map['profesionalId'] as String,
-        sedeId: map['sedeId'] as String,
-        diaSemana: map['diaSemana'] as int,
-        horaInicio: map['horaInicio'] as String,
-        horaFin: map['horaFin'] as String,
+        id: map['id'] as String? ?? '',
+        profesionalId: map['profesionalId'] as String? ?? '',
+        sedeId: map['sedeId'] as String? ?? '',
+        diaSemana: map['diaSemana'] as int? ?? 1,
+        horaInicio: map['horaInicio'] as String? ?? '08:00',
+        horaFin: map['horaFin'] as String? ?? '17:00',
       );
 
   Horario copyWith({

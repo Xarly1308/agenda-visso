@@ -28,13 +28,13 @@ class Paciente {
       };
 
   factory Paciente.fromMap(Map<String, dynamic> map) => Paciente(
-        id: map['id'] as String,
-        documento: map['documento'] as String,
-        nombres: map['nombres'] as String,
-        telefono: map['telefono'] as String,
+        id: map['id'] as String? ?? '',
+        documento: map['documento'] as String? ?? '',
+        nombres: map['nombres'] as String? ?? '',
+        telefono: map['telefono'] as String? ?? '',
         email: map['email'] as String?,
         yaEraPaciente: map['yaEraPaciente'] as bool? ?? false,
-        creadoEn: DateTime.parse(map['creadoEn'] as String),
+        creadoEn: DateTime.tryParse(map['creadoEn'] as String? ?? '') ?? DateTime.now(),
       );
 
   Paciente copyWith({

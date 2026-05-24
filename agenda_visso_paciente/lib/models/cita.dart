@@ -55,7 +55,7 @@ class Cita {
         estado: map['estado'] as String? ?? 'pendiente',
         mensajePersonalizado: map['mensajePersonalizado'] as String?,
         notificada: map['notificada'] as bool? ?? false,
-        creadaEn: map['creadaEn'] != null ? DateTime.tryParse(map['creadaEn'] as String) ?? DateTime.now() : DateTime.now(),
+        creadaEn: DateTime.tryParse(map['creadaEn'] as String? ?? '') ?? DateTime.now(),
         creadoPor: map['creadoPor'] as String?,
         pacienteNombre: map['pacienteNombre'] as String?,
         tipoConsulta: map['tipoConsulta'] as String?,

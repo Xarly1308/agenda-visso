@@ -485,6 +485,22 @@ class _AgendaViewState extends State<_AgendaView> {
         const Divider(height: 8),
         if (agenda.cargando)
           const Expanded(child: Center(child: CircularProgressIndicator()))
+        else if (agenda.ultimoError != null)
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 40, color: Colors.red),
+                  const SizedBox(height: 8),
+                  const Text('Error al cargar datos. Revisa los logs.',
+                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  Text(agenda.ultimoError!, style: const TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          )
         else if (motivoBloqueo != null || timeline.isEmpty)
           Expanded(
             child: Center(
@@ -570,7 +586,9 @@ class _AgendaViewState extends State<_AgendaView> {
         final fs = '${e.fecha.year}-${e.fecha.month.toString().padLeft(2, '0')}-${e.fecha.day.toString().padLeft(2, '0')}';
         _excepcionMotivos[fs] = e.motivo;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('_cargarHorariosYExcepciones error: $e');
+    }
     if (mounted) {
       setState(() {});
       _scrollAPrimeraCita();

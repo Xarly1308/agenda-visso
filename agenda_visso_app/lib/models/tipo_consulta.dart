@@ -16,8 +16,8 @@ class TipoConsulta {
       };
 
   factory TipoConsulta.fromMap(Map<String, dynamic> map) => TipoConsulta(
-        id: map['id'] as String,
-        nombre: map['nombre'] as String,
+        id: map['id'] as String? ?? '',
+        nombre: map['nombre'] as String? ?? '',
         activo: map['activo'] as bool? ?? true,
       );
 

@@ -21,6 +21,8 @@ class AgendaProvider extends ChangeNotifier {
   List<String> get slotsDisponibles => _slotsDisponibles;
   bool get cargando => _cargando;
   DateTime get fechaSeleccionada => _fechaSeleccionada;
+  String? _ultimoError;
+  String? get ultimoError => _ultimoError;
 
   void inicializar(String profesionalId) {
     _profesionalId = profesionalId;
@@ -52,8 +54,11 @@ class AgendaProvider extends ChangeNotifier {
       final citas = await _service.getCitasPorFecha(fecha).timeout(const Duration(seconds: 10));
       if (_fechaSeleccionada == fecha) {
         _citasDelDia = citas;
+        _ultimoError = null;
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('cargarCitas error para $fecha: $e');
+      _ultimoError = e.toString();
       if (_fechaSeleccionada == fecha) {
         _citasDelDia = [];
       }

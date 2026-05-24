@@ -28,9 +28,9 @@ class Sede {
       };
 
   factory Sede.fromMap(Map<String, dynamic> map) => Sede(
-        id: map['id'] as String,
-        nombre: map['nombre'] as String,
-        direccion: map['direccion'] as String,
+        id: map['id'] as String? ?? '',
+        nombre: map['nombre'] as String? ?? '',
+        direccion: map['direccion'] as String? ?? '',
         telefono: map['telefono'] as String?,
         activa: map['activa'] as bool? ?? true,
         icono: map['icono'] as String? ?? 'store',

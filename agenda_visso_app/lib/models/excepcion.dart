@@ -22,10 +22,10 @@ class Excepcion {
       };
 
   factory Excepcion.fromMap(Map<String, dynamic> map) => Excepcion(
-        id: map['id'] as String,
-        profesionalId: map['profesionalId'] as String,
-        fecha: DateTime.parse(map['fecha'] as String),
-        motivo: map['motivo'] as String,
+        id: map['id'] as String? ?? '',
+        profesionalId: map['profesionalId'] as String? ?? '',
+        fecha: DateTime.tryParse(map['fecha'] as String? ?? '') ?? DateTime.now(),
+        motivo: map['motivo'] as String? ?? '',
         tipo: map['tipo'] as String? ?? 'no_laborable',
       );
 
