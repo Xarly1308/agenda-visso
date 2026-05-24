@@ -941,38 +941,55 @@ class _AgendaViewState extends State<_AgendaView> {
   }
 
   Future<void> _mostrarReagendar(Cita cita) async {
+    _showLoading();
+    List<Horario> horarios;
+    try {
+      horarios = await _service.getHorariosPorProfesional(cita.profesionalId);
+    } catch (_) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) _showSnack('Error al cargar horarios');
+      return;
+    }
+    if (!mounted) return;
+    Navigator.pop(context);
+
+    final horariosSede = horarios.where((h) => h.sedeId == cita.sedeId).toList();
+    if (horariosSede.isEmpty) {
+      if (mounted) _showSnack('No hay horarios para esta sede');
+      return;
+    }
+
+    final diasDisponibles = horariosSede.map((h) => h.diaSemana).toSet();
     final newDate = await showDatePicker(
       context: context,
-      initialDate: cita.fecha,
+      initialDate: diasDisponibles.contains(cita.fecha.weekday) ? cita.fecha : DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 90)),
       locale: const Locale('es'),
+      selectableDayPredicate: (day) => diasDisponibles.contains(day.weekday),
     );
     if (newDate == null || !mounted) return;
 
-    final horarios = await _service.getHorariosPorProfesional(cita.profesionalId);
-    final citasDelDia = await _service.getCitasPorFecha(newDate);
-    final horariosDelDia = horarios
-        .where((h) => h.sedeId == cita.sedeId && h.diaSemana == newDate.weekday)
-        .toList();
-    if (horariosDelDia.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No hay horarios disponibles para este día'), behavior: SnackBarBehavior.floating),
-        );
-      }
+    _showLoading();
+    List<Cita> citasDelDia;
+    try {
+      citasDelDia = await _service.getCitasPorFecha(newDate);
+    } catch (_) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) _showSnack('Error al cargar citas del día');
       return;
     }
+    if (!mounted) return;
 
+    final horariosDelDia = horariosSede.where((h) => h.diaSemana == newDate.weekday).toList();
     final slots = CalculadorSlots.calcular(horariosDelDia: horariosDelDia, citasDelDia: citasDelDia, fecha: newDate);
     if (slots.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No hay horarios disponibles para este día'), behavior: SnackBarBehavior.floating),
-        );
-      }
+      Navigator.pop(context);
+      if (mounted) _showSnack('No hay horarios disponibles para este día');
       return;
     }
+    if (!mounted) return;
+    Navigator.pop(context);
 
     final newHora = await showModalBottomSheet<String>(
       context: context,
@@ -1002,12 +1019,31 @@ class _AgendaViewState extends State<_AgendaView> {
     if (newHora == null || !mounted) return;
 
     final agenda = context.read<AgendaProvider>();
-    await agenda.cambiarFechaHora(cita.id, newDate, newHora);
+    try {
+      await agenda.cambiarFechaHora(cita.id, newDate, newHora);
+    } catch (_) {
+      if (mounted) _showSnack('Error al reagendar la cita');
+      return;
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cita reagendada'), behavior: SnackBarBehavior.floating),
       );
     }
+  }
+
+  void _showLoading() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
   }
 
   String _estadoLabel(String e) {

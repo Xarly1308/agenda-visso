@@ -48,12 +48,15 @@ class AgendaProvider extends ChangeNotifier {
   Future<void> cargarCitas(DateTime fecha) async {
     _cargando = true;
     notifyListeners();
-
-    final citas = await _service.getCitasPorFecha(fecha);
-    _citasDelDia = citas;
-
-    _cargando = false;
-    notifyListeners();
+    try {
+      final citas = await _service.getCitasPorFecha(fecha).timeout(const Duration(seconds: 15));
+      _citasDelDia = citas;
+    } catch (_) {
+      _citasDelDia = [];
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
   }
 
   Future<void> calcularSlots({
