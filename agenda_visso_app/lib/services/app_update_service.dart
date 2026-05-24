@@ -12,7 +12,11 @@ class AppUpdateService {
   final http.Client _client = http.Client();
 
   Future<Map<String, String>?> _headers() async {
-    final user = FirebaseAuth.instance.currentUser;
+    var user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      user = FirebaseAuth.instance.currentUser;
+    }
     if (user == null) return null;
     final token = await user.getIdToken();
     return {

@@ -19,7 +19,11 @@ class FirestoreRestService {
   final Uuid _uuid = const Uuid();
 
   Future<Map<String, String>> _headers() async {
-    final user = FirebaseAuth.instance.currentUser;
+    var user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      user = FirebaseAuth.instance.currentUser;
+    }
     if (user == null) throw Exception('No authenticated user');
     final token = await user.getIdToken().timeout(const Duration(seconds: 8));
     return {

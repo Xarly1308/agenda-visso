@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/sede.dart';
+import '../models/sede.dart' show Sede;
 import '../models/horario.dart';
 import '../models/cita.dart';
 import '../models/excepcion.dart';
@@ -561,10 +561,26 @@ class _AgendaViewState extends State<_AgendaView> {
   }
 
   Future<void> _cargarHorariosYExcepciones(DateTime fecha, String? sedeId) async {
-    if (sedeId == null) return;
     final auth = context.read<AuthProvider>();
     final uid = auth.user?.uid;
     if (uid == null) return;
+
+    String? resolvedSedeId = sedeId;
+    if (resolvedSedeId == null) {
+      try {
+        final sedes = await _service.getSedes().timeout(const Duration(seconds: 10));
+        if (sedes.isNotEmpty) {
+          resolvedSedeId = sedes.first.id;
+          final config = context.read<ConfigProvider>();
+          if (config.sedes.isEmpty) {
+            config.popularSedes(sedes, resolvedSedeId);
+          }
+        }
+      } catch (e) {
+        debugPrint('_cargarHorariosYExcepciones: error cargando sedes: $e');
+      }
+    }
+    if (resolvedSedeId == null) return;
     if (mounted) {
       setState(() {
         _horariosDelDia = [];

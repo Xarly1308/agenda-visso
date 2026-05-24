@@ -32,12 +32,16 @@ class ConfigProvider extends ChangeNotifier {
   Future<void> cargarSedes() async {
     _cargando = true;
     notifyListeners();
-
-    _sedes = await _service.getSedes();
-    if (_profesionalId != null) {
-      _horarios = await _service.getHorariosPorProfesional(_profesionalId!);
+    try {
+      _sedes = await _service.getSedes();
+      if (_profesionalId != null) {
+        _horarios = await _service.getHorariosPorProfesional(_profesionalId!);
+      }
+    } catch (e) {
+      debugPrint('cargarSedes error: $e');
+      _sedes = [];
+      _horarios = [];
     }
-
     await _restaurarSede();
     _cargando = false;
     notifyListeners();
@@ -61,6 +65,12 @@ class ConfigProvider extends ChangeNotifier {
     _sedeSeleccionadaId = sedeId;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('sede_default', sedeId);
+    notifyListeners();
+  }
+
+  void popularSedes(List<Sede> sedes, String sedeId) {
+    _sedes = List.from(sedes); // ensure a new list
+    _sedeSeleccionadaId = sedeId;
     notifyListeners();
   }
 
