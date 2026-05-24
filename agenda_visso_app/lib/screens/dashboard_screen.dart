@@ -952,10 +952,11 @@ class _AgendaViewState extends State<_AgendaView> {
     _showLoading();
     List<Horario> horarios;
     try {
-      horarios = await _service.getHorariosPorProfesional(cita.profesionalId);
-    } catch (_) {
+      horarios = await _service.getHorariosPorProfesional(cita.profesionalId).timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('reagendar: error horarios: $e');
       if (mounted) Navigator.pop(context);
-      if (mounted) _showSnack('Error al cargar horarios');
+      if (mounted) _showSnack('Error al cargar horarios: ${e.toString().length > 60 ? e.toString().substring(0, 60) : e.toString()}');
       return;
     }
     if (!mounted) return;
@@ -981,10 +982,11 @@ class _AgendaViewState extends State<_AgendaView> {
     _showLoading();
     List<Cita> citasDelDia;
     try {
-      citasDelDia = await _service.getCitasPorFecha(newDate);
-    } catch (_) {
+      citasDelDia = await _service.getCitasPorFecha(newDate).timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('reagendar: error citas del día: $e');
       if (mounted) Navigator.pop(context);
-      if (mounted) _showSnack('Error al cargar citas del día');
+      if (mounted) _showSnack('Error al cargar citas del día: ${e.toString().length > 60 ? e.toString().substring(0, 60) : e.toString()}');
       return;
     }
     if (!mounted) return;
