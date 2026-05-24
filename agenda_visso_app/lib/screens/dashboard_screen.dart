@@ -652,10 +652,11 @@ class _AgendaViewState extends State<_AgendaView> {
       if (sedeId != null && c.sedeId != sedeId) return false;
       return true;
     }).toList();
-    final dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    final dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     final meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     final ahora = DateTime.now();
-    final tituloFecha = '${dias[ahora.weekday]} ${ahora.day} de ${meses[ahora.month - 1]}';
+    // weekday es 1-7, usamos (weekday - 1) para índice 0-6
+    final tituloFecha = '${dias[ahora.weekday - 1]} ${ahora.day} de ${meses[ahora.month - 1]}';
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(maxHeight: 160),
