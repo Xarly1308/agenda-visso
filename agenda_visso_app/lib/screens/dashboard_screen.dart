@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1029,8 +1029,9 @@ class _AgendaViewState extends State<_AgendaView> {
     final agenda = context.read<AgendaProvider>();
     try {
       await agenda.cambiarFechaHora(cita.id, newDate, newHora);
-    } catch (_) {
-      if (mounted) _showSnack('Error al reagendar la cita');
+    } catch (e) {
+      debugPrint('Error al reagendar: $e');
+      if (mounted) _showSnack('Error al reagendar: ${e.toString().length > 60 ? e.toString().substring(0, 60) : e.toString()}');
       return;
     }
     if (mounted) {
