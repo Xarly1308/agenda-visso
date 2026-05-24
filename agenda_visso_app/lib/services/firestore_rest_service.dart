@@ -21,7 +21,7 @@ class FirestoreRestService {
   Future<Map<String, String>> _headers() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('No authenticated user');
-    final token = await user.getIdToken().timeout(const Duration(seconds: 10));
+    final token = await user.getIdToken().timeout(const Duration(seconds: 8));
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
@@ -59,7 +59,7 @@ class FirestoreRestService {
   Future<List<dynamic>> _runQuery(Map<String, dynamic> query) async {
     final response = await _client
         .post(_url(':runQuery'), headers: await _headers(), body: jsonEncode(query))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Query error (${response.statusCode}): ${response.body}');
     }
@@ -71,7 +71,7 @@ class FirestoreRestService {
     final response = await _client
         .post(_url('/$collection?documentId=$id'), headers: await _headers(),
             body: jsonEncode({'fields': _toFields(data)}))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Error al crear $collection: ${response.statusCode}');
     }
@@ -81,7 +81,7 @@ class FirestoreRestService {
     final response = await _client
         .patch(_url('/$collection/$id'), headers: await _headers(),
             body: jsonEncode({'fields': _toFields(data)}))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Error al actualizar $collection: ${response.statusCode}');
     }
@@ -90,7 +90,7 @@ class FirestoreRestService {
   Future<Map<String, dynamic>?> _getDocument(String collection, String id) async {
     final response = await _client
         .get(_url('/$collection/$id'), headers: await _headers())
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode == 404) return null;
     if (response.statusCode != 200) {
       throw Exception('Error al obtener $collection: ${response.statusCode}');
@@ -103,7 +103,7 @@ class FirestoreRestService {
     final response = await _client
         .post(Uri.parse('$_baseUrl:commit'), headers: await _headers(),
             body: jsonEncode({'writes': writes}))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Commit error (${response.statusCode}): ${response.body}');
     }
@@ -222,7 +222,7 @@ class FirestoreRestService {
   Future<void> deleteHorario(String id) async {
     final response = await _client
         .delete(_url('/horarios/$id'), headers: await _headers())
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Error al eliminar horario: ${response.statusCode}');
     }
@@ -280,7 +280,7 @@ class FirestoreRestService {
   Future<void> deletePaciente(String id) async {
     final response = await _client
         .delete(_url('/pacientes/$id'), headers: await _headers())
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Error al eliminar paciente: ${response.statusCode}');
     }
@@ -483,7 +483,7 @@ class FirestoreRestService {
   Future<void> deleteCita(String id) async {
     final response = await _client
         .delete(_url('/citas/$id'), headers: await _headers())
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Error al eliminar cita: ${response.statusCode}');
     }
@@ -592,7 +592,7 @@ class FirestoreRestService {
   Future<void> deleteExcepcion(String id) async {
     final response = await _client
         .delete(_url('/excepciones/$id'), headers: await _headers())
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Error al eliminar excepción: ${response.statusCode}');
     }

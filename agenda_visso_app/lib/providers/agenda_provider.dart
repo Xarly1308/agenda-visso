@@ -49,10 +49,14 @@ class AgendaProvider extends ChangeNotifier {
     _cargando = true;
     notifyListeners();
     try {
-      final citas = await _service.getCitasPorFecha(fecha).timeout(const Duration(seconds: 15));
-      _citasDelDia = citas;
+      final citas = await _service.getCitasPorFecha(fecha).timeout(const Duration(seconds: 10));
+      if (_fechaSeleccionada == fecha) {
+        _citasDelDia = citas;
+      }
     } catch (_) {
-      _citasDelDia = [];
+      if (_fechaSeleccionada == fecha) {
+        _citasDelDia = [];
+      }
     } finally {
       _cargando = false;
       notifyListeners();

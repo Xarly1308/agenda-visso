@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/sede.dart';
 import '../models/horario.dart';
 import '../models/cita.dart';
+import '../models/excepcion.dart';
 import '../providers/agenda_provider.dart';
 import '../providers/config_provider.dart';
 import '../providers/auth_provider.dart';
@@ -379,9 +380,11 @@ class _AgendaViewState extends State<_AgendaView> {
   }
 
   Future<void> _cargarCitasHoy() async {
-    final hoy = DateTime.now();
-    final citas = await _service.getCitasPorFecha(hoy);
-    if (mounted) setState(() => _citasHoy = citas);
+    try {
+      final hoy = DateTime.now();
+      final citas = await _service.getCitasPorFecha(hoy).timeout(const Duration(seconds: 10));
+      if (mounted) setState(() => _citasHoy = citas);
+    } catch (_) {}
   }
 
   void _scrollAPrimeraCita() {
@@ -551,18 +554,23 @@ class _AgendaViewState extends State<_AgendaView> {
         _horariosDelDia = [];
       });
     }
-    final todos = await _service.getHorariosPorProfesional(uid);
-    _horariosDelDia = todos.where((h) =>
-        h.sedeId == sedeId && h.diaSemana == fecha.weekday).toList();
-    final excepciones = await _service.getExcepciones(uid);
-    _excepcionFechas = excepciones
-        .map((e) => '${e.fecha.year}-${e.fecha.month.toString().padLeft(2, '0')}-${e.fecha.day.toString().padLeft(2, '0')}')
-        .toSet();
-    _excepcionMotivos = {};
-    for (final e in excepciones) {
-      final fs = '${e.fecha.year}-${e.fecha.month.toString().padLeft(2, '0')}-${e.fecha.day.toString().padLeft(2, '0')}';
-      _excepcionMotivos[fs] = e.motivo;
-    }
+    try {
+      final results = await Future.wait([
+        _service.getHorariosPorProfesional(uid).timeout(const Duration(seconds: 10)),
+        _service.getExcepciones(uid).timeout(const Duration(seconds: 10)),
+      ]);
+      _horariosDelDia = (results[0] as List<Horario>)
+          .where((h) => h.sedeId == sedeId && h.diaSemana == fecha.weekday).toList();
+      final excepciones = results[1] as List<Excepcion>;
+      _excepcionFechas = excepciones
+          .map((e) => '${e.fecha.year}-${e.fecha.month.toString().padLeft(2, '0')}-${e.fecha.day.toString().padLeft(2, '0')}')
+          .toSet();
+      _excepcionMotivos = {};
+      for (final e in excepciones) {
+        final fs = '${e.fecha.year}-${e.fecha.month.toString().padLeft(2, '0')}-${e.fecha.day.toString().padLeft(2, '0')}';
+        _excepcionMotivos[fs] = e.motivo;
+      }
+    } catch (_) {}
     if (mounted) {
       setState(() {});
       _scrollAPrimeraCita();
