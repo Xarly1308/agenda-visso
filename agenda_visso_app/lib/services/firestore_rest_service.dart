@@ -78,8 +78,10 @@ class FirestoreRestService {
   }
 
   Future<void> _updateDocument(String collection, String id, Map<String, dynamic> data) async {
+    final mask = data.keys.map((k) => 'updateMask.fieldPaths=$k').join('&');
+    final uri = Uri.parse('$_baseUrl/$collection/$id?$mask');
     final response = await _client
-        .patch(_url('/$collection/$id'), headers: await _headers(),
+        .patch(uri, headers: await _headers(),
             body: jsonEncode({'fields': _toFields(data)}))
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {

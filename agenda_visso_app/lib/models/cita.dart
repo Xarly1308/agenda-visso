@@ -46,16 +46,16 @@ class Cita {
       };
 
   factory Cita.fromMap(Map<String, dynamic> map) => Cita(
-        id: map['id'] as String,
-        profesionalId: map['profesionalId'] as String,
-        sedeId: map['sedeId'] as String,
-        pacienteId: map['pacienteId'] as String,
-        fecha: DateTime.parse(map['fecha'] as String),
-        hora: map['hora'] as String,
+        id: map['id'] as String? ?? '',
+        profesionalId: map['profesionalId'] as String? ?? '',
+        sedeId: map['sedeId'] as String? ?? '',
+        pacienteId: map['pacienteId'] as String? ?? '',
+        fecha: DateTime.tryParse(map['fecha'] as String? ?? '') ?? DateTime.now(),
+        hora: map['hora'] as String? ?? '00:00',
         estado: map['estado'] as String? ?? 'pendiente',
         mensajePersonalizado: map['mensajePersonalizado'] as String?,
         notificada: map['notificada'] as bool? ?? false,
-        creadaEn: map['creadaEn'] != null ? DateTime.parse(map['creadaEn'] as String) : DateTime.now(),
+        creadaEn: map['creadaEn'] != null ? DateTime.tryParse(map['creadaEn'] as String) ?? DateTime.now() : DateTime.now(),
         creadoPor: map['creadoPor'] as String?,
         pacienteNombre: map['pacienteNombre'] as String?,
         tipoConsulta: map['tipoConsulta'] as String?,
