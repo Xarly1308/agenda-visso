@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../models/sede.dart' show Sede;
 import '../models/horario.dart';
 import '../models/cita.dart';
@@ -11,12 +12,14 @@ import '../providers/agenda_provider.dart';
 import '../providers/config_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notificacion_provider.dart';
+import '../providers/pacientes_provider.dart';
 import '../services/notificacion_service.dart';
 import '../services/firestore_service.dart';
 import '../services/app_update_service.dart';
 import '../utils/colombian_holidays.dart';
 import '../utils/formato_hora.dart';
 import '../utils/calculador_slots.dart';
+import 'config_screen.dart';
 import 'config_screen.dart';
 import '../widgets/calendar_header.dart';
 import 'nueva_cita_screen.dart';
@@ -133,7 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: const Text('Ahora no'),
             ),
             FilledButton.icon(
-              icon: const Icon(Icons.download, size: 18),
+              icon: const Icon(LucideIcons.download, size: 18),
               label: const Text('Descargar'),
               onPressed: () => Navigator.pop(ctx, true),
             ),
@@ -207,7 +210,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: config.sedes.map((s) => ListTile(
             title: Text(s.nombre),
             subtitle: Text(s.direccion),
-            leading: CircleAvatar(child: Icon(iconoDeSede(s.icono))),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(iconoDeSede(s.icono), color: Colors.white, size: 24),
+            ),
             onTap: () => Navigator.pop(ctx, s),
           )).toList(),
         ),
@@ -219,53 +230,148 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-IconData iconoDeSede(String icono) {
-  switch (icono) {
-    case 'store': return Icons.store;
-    case 'medical_services': return Icons.medical_services;
-    case 'visibility': return Icons.visibility;
-    case 'local_hospital': return Icons.local_hospital;
-    case 'home': return Icons.home;
-    case 'business': return Icons.business;
-    case 'location_city': return Icons.location_city;
-    case 'apartment': return Icons.apartment;
-    default: return Icons.store;
-  }
-}
-
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width > 768;
     return Scaffold(
-      appBar: AppBar(
-        title: SizedBox(
-          height: 32,
-          child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain),
+      appBar: isDesktop
+          ? AppBar(
+              toolbarHeight: 60,
+              titleSpacing: 0,
+              title: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    height: 32,
+                    child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain),
+                  ),
+                  const Spacer(),
+                  _buildFirebaseStatus(context),
+                  _buildNotificacionesBoton(context),
+                  const SizedBox(width: 16),
+                ],
+              ),
+            )
+          : AppBar(
+              title: SizedBox(
+                height: 32,
+                child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain),
+              ),
+              actions: [
+                _buildFirebaseStatus(context),
+                _buildNotificacionesBoton(context),
+              ],
+            ),
+      body: isDesktop ? _buildDesktopLayout() : _buildBody(),
+      bottomNavigationBar: isDesktop ? null : _buildMobileNav(),
+    );
+  }
+
+  Widget _buildMobileNav() {
+    return NavigationBar(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+      destinations: [
+        const NavigationDestination(icon: Icon(LucideIcons.calendarDays), label: 'Agenda'),
+        const NavigationDestination(icon: Icon(LucideIcons.users), label: 'Pacientes'),
+        NavigationDestination(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(LucideIcons.plus, color: Colors.white, size: 24),
+          ),
+          label: 'Nueva',
         ),
-        actions: [
-          _buildNotificacionesBoton(context),
+        const NavigationDestination(icon: Icon(LucideIcons.barChart3), label: 'Estadísticas'),
+        const NavigationDestination(icon: Icon(LucideIcons.settings), label: 'Configurar'),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: theme.elevatedButtonTheme.style?.copyWith(
+            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: theme.outlinedButtonTheme.style?.copyWith(
+            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+          ),
+        ),
+        inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+      ),
+      child: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+            labelType: NavigationRailLabelType.all,
+            destinations: [
+              const NavigationRailDestination(icon: Icon(LucideIcons.calendarDays), label: Text('Agenda')),
+              const NavigationRailDestination(icon: Icon(LucideIcons.users), label: Text('Pacientes')),
+              NavigationRailDestination(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(LucideIcons.plus, color: Colors.white, size: 24),
+                ),
+                label: const Text('Nueva'),
+              ),
+              const NavigationRailDestination(icon: Icon(LucideIcons.barChart3), label: Text('Estadísticas')),
+              const NavigationRailDestination(icon: Icon(LucideIcons.settings), label: Text('Configurar')),
+            ],
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: _buildBody(),
+              ),
+            ),
+          ),
         ],
       ),
-      body: _buildBody(),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-        destinations: [
-          NavigationDestination(icon: Icon(Icons.today), label: 'Agenda'),
-          NavigationDestination(icon: Icon(Icons.people), label: 'Pacientes'),
-          NavigationDestination(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Colors.teal,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 24),
+    );
+  }
+
+  Widget _buildFirebaseStatus(BuildContext context) {
+    final agenda = context.watch<AgendaProvider>();
+    final conectado = agenda.ultimoError == null;
+    return Tooltip(
+      message: conectado ? 'Conectado a Firebase' : 'Error de conexión',
+      child: GestureDetector(
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(conectado
+                  ? 'Conectado a Firebase'
+                  : 'Error de conexión: ${agenda.ultimoError}'),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
             ),
-            label: 'Nueva',
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Icon(
+            conectado ? LucideIcons.wifi : LucideIcons.wifiOff,
+            size: 18,
+            color: conectado ? Colors.green : Colors.red,
           ),
-          NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Estadísticas'),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Configurar'),
-        ],
+        ),
       ),
     );
   }
@@ -275,7 +381,7 @@ IconData iconoDeSede(String icono) {
     return Stack(
       children: [
         IconButton(
-          icon: const Icon(Icons.notifications_outlined),
+          icon: const Icon(LucideIcons.bell),
           onPressed: () => _mostrarNotificaciones(context),
         ),
         if (notif.noLeidas > 0)
@@ -320,10 +426,10 @@ IconData iconoDeSede(String icono) {
               leading: CircleAvatar(
                 backgroundColor: n.tipo == 'cancelada'
                     ? Colors.red.shade100
-                    : Colors.teal.shade100,
+                    : Theme.of(context).colorScheme.primary.withAlpha(30),
                 child: Icon(
                   n.tipo == 'cancelada' ? Icons.cancel : Icons.check_circle,
-                  color: n.tipo == 'cancelada' ? Colors.red : Colors.teal,
+                  color: n.tipo == 'cancelada' ? Colors.red : Theme.of(context).colorScheme.primary,
                   size: 20,
                 ),
               ),
@@ -355,6 +461,20 @@ IconData iconoDeSede(String icono) {
   }
 }
 
+IconData iconoDeSede(String icono) {
+  switch (icono) {
+    case 'store': return LucideIcons.store;
+    case 'medical_services': return LucideIcons.heartPulse;
+    case 'visibility': return LucideIcons.eye;
+    case 'local_hospital': return LucideIcons.stethoscope;
+    case 'home': return LucideIcons.home;
+    case 'business': return LucideIcons.building2;
+    case 'location_city': return LucideIcons.building2;
+    case 'apartment': return LucideIcons.building;
+    default: return LucideIcons.store;
+  }
+}
+
 class _AgendaView extends StatefulWidget {
   const _AgendaView();
 
@@ -372,6 +492,8 @@ class _AgendaViewState extends State<_AgendaView> {
   Map<String, String> _excepcionMotivos = {};
   List<Cita> _citasHoy = [];
   int _versionCitasAgenda = -1;
+  bool _cargandoHorarios = true;
+  Set<String> _fechasConCitas = {};
 
   @override
   void dispose() {
@@ -384,6 +506,21 @@ class _AgendaViewState extends State<_AgendaView> {
       final hoy = DateTime.now();
       final citas = await _service.getCitasPorFecha(hoy).timeout(const Duration(seconds: 10));
       if (mounted) setState(() => _citasHoy = citas);
+    } catch (_) {}
+  }
+
+  Future<void> _cargarCitasSemana(DateTime fecha) async {
+    try {
+      final inicio = fecha.subtract(Duration(days: fecha.weekday - DateTime.monday));
+      final fin = inicio.add(const Duration(days: 13));
+      final citas = await _service.getCitasEnRango(inicio, fin).timeout(const Duration(seconds: 15));
+      if (mounted) {
+        setState(() {
+          _fechasConCitas = citas
+              .map((c) => '${c.fecha.year}-${c.fecha.month.toString().padLeft(2, '0')}-${c.fecha.day.toString().padLeft(2, '0')}')
+              .toSet();
+        });
+      }
     } catch (_) {}
   }
 
@@ -448,7 +585,12 @@ class _AgendaViewState extends State<_AgendaView> {
     final fechaStr = '${fecha.year}-${fecha.month.toString().padLeft(2, '0')}-${fecha.day.toString().padLeft(2, '0')}';
     final motivoBloqueo = _excepcionMotivos[fechaStr];
 
+    final primary = Theme.of(context).colorScheme.primary;
+    final primaryLight = primary.withAlpha(13);
+    final primaryDark = primary.withOpacity(0.7);
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (esFestivo)
           Container(
@@ -457,7 +599,7 @@ class _AgendaViewState extends State<_AgendaView> {
             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
             child: Row(
               children: [
-                const Icon(Icons.celebration, size: 16, color: Colors.orange),
+                const Icon(LucideIcons.sparkles, size: 16, color: Colors.orange),
                 const SizedBox(width: 8),
                 Text('Festivo: $nombreFestivo',
                     style: const TextStyle(fontSize: 13, color: Colors.orange)),
@@ -467,8 +609,12 @@ class _AgendaViewState extends State<_AgendaView> {
         _buildSedeSelector(config, agenda),
         CalendarHeader(
           selectedDate: fecha,
+          isDesktop: MediaQuery.of(context).size.width > 768,
           excepcionFechas: _excepcionFechas,
+          citaFechas: _fechasConCitas,
           onDateSelected: (d) => agenda.setFecha(d),
+          onPreviousCita: () => _navegarACita(-1),
+          onNextCita: () => _navegarACita(1),
           onDatePickerTap: () async {
             final picked = await showDatePicker(
               context: context,
@@ -477,11 +623,27 @@ class _AgendaViewState extends State<_AgendaView> {
               lastDate: fecha.add(const Duration(days: 365)),
               locale: const Locale('es', 'ES'),
               initialEntryMode: DatePickerEntryMode.calendarOnly,
+              builder: (context, child) {
+                return Localizations.override(
+                  context: context,
+                  locale: const Locale('es', 'ES'),
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      datePickerTheme: const DatePickerThemeData(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    child: child!,
+                  ),
+                );
+              },
             );
             if (picked != null) agenda.setFecha(picked);
           },
         ),
-        _buildResumenHoy(sedeId),
+        _buildResumenHoy(sedeId, primary, primaryLight, primaryDark),
         const Divider(height: 8),
         if (agenda.cargando)
           const Expanded(child: Center(child: CircularProgressIndicator()))
@@ -491,7 +653,7 @@ class _AgendaViewState extends State<_AgendaView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline, size: 40, color: Colors.red),
+                  const Icon(LucideIcons.alertCircle, size: 40, color: Colors.red),
                   const SizedBox(height: 8),
                   const Text('Error al cargar datos. Revisa los logs.',
                       style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
@@ -500,6 +662,10 @@ class _AgendaViewState extends State<_AgendaView> {
                 ],
               ),
             ),
+          )
+        else if (_cargandoHorarios)
+          Expanded(
+            child: const Center(child: CircularProgressIndicator()),
           )
         else if (motivoBloqueo != null || timeline.isEmpty)
           Expanded(
@@ -537,9 +703,8 @@ class _AgendaViewState extends State<_AgendaView> {
                 if (i < timeline.length) {
                   return _buildTimelineRow(timeline[i]);
                 }
-                // Show canceled citas at the bottom
                 final canceladas = citasCanceladas(citasSede);
-                if (canceladas.isEmpty) return null; // shouldn't happen
+                if (canceladas.isEmpty) return null;
                 if (i == timeline.length) {
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -584,6 +749,7 @@ class _AgendaViewState extends State<_AgendaView> {
     if (mounted) {
       setState(() {
         _horariosDelDia = [];
+        _cargandoHorarios = true;
       });
     }
     try {
@@ -606,9 +772,36 @@ class _AgendaViewState extends State<_AgendaView> {
       debugPrint('_cargarHorariosYExcepciones error: $e');
     }
     if (mounted) {
+      setState(() {
+        _cargandoHorarios = false;
+      });
+      _cargarCitasSemana(fecha);
       setState(() {});
       _scrollAPrimeraCita();
       _cargarCitasHoy();
+    }
+  }
+
+  void _navegarACita(int direccion) {
+    final agenda = context.read<AgendaProvider>();
+    final fechas = _fechasConCitas.map((f) {
+      final parts = f.split('-');
+      return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    }).toList()..sort();
+    if (fechas.isEmpty) return;
+
+    final actual = agenda.fechaSeleccionada;
+    final idx = fechas.indexWhere((f) => f.isAtSameMomentAs(actual) || f.isAfter(actual));
+    if (idx < 0) return;
+
+    final enMismaFecha = fechas[idx].isAtSameMomentAs(actual);
+    final target = direccion > 0
+        ? (enMismaFecha
+            ? (idx < fechas.length - 1 ? fechas[idx + 1] : null)
+            : fechas[idx])
+        : (idx > 0 ? fechas[idx - 1] : null);
+    if (target != null) {
+      agenda.setFecha(target);
     }
   }
 
@@ -646,7 +839,7 @@ class _AgendaViewState extends State<_AgendaView> {
     );
   }
 
-  Widget _buildResumenHoy(String? sedeId) {
+  Widget _buildResumenHoy(String? sedeId, Color primary, Color primaryLight, Color primaryDark) {
     final activas = _citasHoy.where((c) {
       if (c.estado == 'cancelada') return false;
       if (sedeId != null && c.sedeId != sedeId) return false;
@@ -666,20 +859,20 @@ class _AgendaViewState extends State<_AgendaView> {
         children: [
           Row(
             children: [
-              const Icon(Icons.today, size: 16, color: Colors.teal),
+              Icon(LucideIcons.calendarDays, size: 16, color: primary),
               const SizedBox(width: 6),
               Text('Citas de hoy $tituloFecha',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.teal)),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: primary)),
               const Spacer(),
               if (activas.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.teal.shade50,
+                    color: primaryLight,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text('${activas.length}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.teal.shade700)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: primaryDark)),
                 ),
             ],
           ),
@@ -709,10 +902,13 @@ class _AgendaViewState extends State<_AgendaView> {
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                c.pacienteNombre ?? '',
-                                style: const TextStyle(fontSize: 12),
-                                overflow: TextOverflow.ellipsis,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  c.pacienteNombre ?? '',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ),
                             ),
                             Container(
@@ -750,11 +946,10 @@ class _AgendaViewState extends State<_AgendaView> {
       if (inicio >= fin) continue;
       for (int m = inicio; m < fin; m += 30) {
         final hora = _minutosToHora(m);
-        final esLabelHora = m % 60 == 0;
         slots.add(_TimelineSlot(
           hora: hora,
           cita: ocupadas[hora],
-          esLabelHora: esLabelHora,
+          esLabelHora: true,
         ));
       }
     }
@@ -764,7 +959,7 @@ class _AgendaViewState extends State<_AgendaView> {
   Widget _buildTimelineRow(_TimelineSlot slot) {
     final esPar = _horaToMinutos(slot.hora) ~/ 30 % 2 == 0;
     return Container(
-      height: slot.cita != null ? 72 : 36,
+      height: slot.cita != null ? 88 : 40,
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
         color: esPar ? Colors.transparent : Colors.grey.shade50,
@@ -776,15 +971,15 @@ class _AgendaViewState extends State<_AgendaView> {
             width: 68,
             child: Padding(
               padding: EdgeInsets.only(
-                top: slot.esLabelHora ? 4 : (slot.cita != null ? 4 : 0),
+                top: slot.cita != null ? 4 : 6,
                 left: 8,
               ),
               child: Text(
-                slot.esLabelHora ? formato12h(slot.hora) : '',
-                style: TextStyle(
-                  fontSize: slot.esLabelHora ? 12 : 10,
-                  fontWeight: slot.esLabelHora ? FontWeight.w600 : FontWeight.w400,
-                  color: slot.esLabelHora ? Colors.black87 : Colors.grey.shade400,
+                formato12h(slot.hora),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
               ),
             ),
@@ -807,9 +1002,12 @@ class _AgendaViewState extends State<_AgendaView> {
         : estado == 'confirmada'
             ? Colors.green
             : Colors.red);
+    final pacientesProv = context.read<PacientesProvider>();
+    final paciente = pacientesProv.todos.where((p) => p.id == cita.pacienteId).firstOrNull;
+    final esRepetido = paciente?.yaEraPaciente ?? false;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Card(
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
@@ -822,7 +1020,7 @@ class _AgendaViewState extends State<_AgendaView> {
           borderRadius: BorderRadius.circular(6),
           onTap: () => _mostrarMenuCita(context, cita),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
               children: [
                 Expanded(
@@ -830,36 +1028,54 @@ class _AgendaViewState extends State<_AgendaView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        cita.pacienteNombre ?? cita.pacienteId,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: Colors.black87,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          cita.pacienteNombre ?? cita.pacienteId,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(formato12h(cita.hora),
+                              style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: color.withAlpha(30),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _estadoLabel(estado),
+                              style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(cita.tipoConsulta ?? 'No especificado',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
                       Text(
-                        '${formato12h(cita.hora)} · ${_estadoLabel(estado)}',
-                        style: const TextStyle(fontSize: 11, color: Colors.black54),
+                        esRepetido ? 'Ya es paciente' : 'Nuevo paciente',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: esRepetido ? Colors.teal : Colors.orange,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(30),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _estadoLabel(estado),
-                    style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
-                  ),
-                ),
                 const SizedBox(width: 4),
-                const Icon(Icons.more_vert, size: 16, color: Colors.grey),
+                const Icon(LucideIcons.moreVertical, size: 16, color: Colors.grey),
               ],
             ),
           ),
@@ -924,34 +1140,32 @@ class _AgendaViewState extends State<_AgendaView> {
             const Divider(height: 1),
             if (cita.estado != 'confirmada')
               ListTile(
-                leading: const Icon(Icons.check_circle, color: Colors.green),
+                leading: const Icon(LucideIcons.checkCircle2, color: Colors.green),
                 title: const Text('Confirmar'),
                 onTap: () {
                   Navigator.pop(ctx);
                   agenda.cambiarEstadoCita(cita.id, 'confirmada');
                 },
               ),
-            if (cita.estado != 'cancelada') ...[
-              ListTile(
-                leading: const Icon(Icons.event, color: Colors.orange),
-                title: const Text('Reagendar'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _mostrarReagendar(cita);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.cancel, color: Colors.red),
-                title: const Text('Cancelar'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  agenda.cambiarEstadoCita(cita.id, 'cancelada');
-                },
-              ),
-            ],
             ListTile(
-              leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
-              title: const Text('Solicitar confirmación por WhatsApp'),
+              leading: const Icon(LucideIcons.calendarCheck, color: Colors.orange),
+              title: const Text('Reagendar'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _mostrarReagendar(cita);
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.xCircle, color: Colors.red),
+              title: const Text('Cancelar'),
+              onTap: () {
+                Navigator.pop(ctx);
+                agenda.cambiarEstadoCita(cita.id, 'cancelada');
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.messageSquare, color: Color(0xFF25D366)),
+              title: const Text('Confirmar vía WhatsApp'),
               onTap: () async {
                 Navigator.pop(ctx);
                 final paciente = await _service.getPacientePorId(cita.pacienteId);
@@ -969,7 +1183,7 @@ class _AgendaViewState extends State<_AgendaView> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              leading: const Icon(LucideIcons.trash2, color: Colors.red),
               title: const Text('Eliminar', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(ctx);
@@ -1009,8 +1223,24 @@ class _AgendaViewState extends State<_AgendaView> {
       initialDate: diasDisponibles.contains(cita.fecha.weekday) ? cita.fecha : DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 90)),
-      locale: const Locale('es'),
+      locale: const Locale('es', 'ES'),
       selectableDayPredicate: (day) => diasDisponibles.contains(day.weekday),
+      builder: (context, child) {
+        return Localizations.override(
+          context: context,
+          locale: const Locale('es', 'ES'),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              datePickerTheme: const DatePickerThemeData(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                ),
+              ),
+            ),
+            child: child!,
+          ),
+        );
+      },
     );
     if (newDate == null || !mounted) return;
 
@@ -1170,19 +1400,7 @@ class _SedeChip extends StatelessWidget {
     );
   }
 
-  IconData _icono(String i) {
-    switch (i) {
-      case 'store': return Icons.store;
-      case 'medical_services': return Icons.medical_services;
-      case 'visibility': return Icons.visibility;
-      case 'local_hospital': return Icons.local_hospital;
-      case 'home': return Icons.home;
-      case 'business': return Icons.business;
-      case 'location_city': return Icons.location_city;
-      case 'apartment': return Icons.apartment;
-      default: return Icons.store;
-    }
-  }
+  IconData _icono(String i) => iconoDeSede(i);
 }
 
 class _ConfigView extends StatelessWidget {

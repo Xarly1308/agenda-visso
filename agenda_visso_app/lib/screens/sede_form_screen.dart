@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../models/sede.dart';
 import '../providers/config_provider.dart';
 
@@ -20,27 +21,27 @@ class _SedeFormScreenState extends State<SedeFormScreen> {
   String _iconoSeleccionado = 'store';
 
   static const _iconosDisponibles = [
-    ('store', 'Tienda'),
-    ('medical_services', 'Servicios Médicos'),
-    ('visibility', 'Optometría'),
-    ('local_hospital', 'Hospital'),
-    ('home', 'Casa'),
-    ('business', 'Negocio'),
-    ('location_city', 'Ciudad'),
-    ('apartment', 'Edificio'),
+    'store',
+    'medical_services',
+    'visibility',
+    'local_hospital',
+    'home',
+    'business',
+    'location_city',
+    'apartment',
   ];
 
   static IconData _iconoDeSede(String icono) {
     switch (icono) {
-      case 'store': return Icons.store;
-      case 'medical_services': return Icons.medical_services;
-      case 'visibility': return Icons.visibility;
-      case 'local_hospital': return Icons.local_hospital;
-      case 'home': return Icons.home;
-      case 'business': return Icons.business;
-      case 'location_city': return Icons.location_city;
-      case 'apartment': return Icons.apartment;
-      default: return Icons.store;
+      case 'store': return LucideIcons.store;
+      case 'medical_services': return LucideIcons.heartPulse;
+      case 'visibility': return LucideIcons.eye;
+      case 'local_hospital': return LucideIcons.stethoscope;
+      case 'home': return LucideIcons.home;
+      case 'business': return LucideIcons.building2;
+      case 'location_city': return LucideIcons.building2;
+      case 'apartment': return LucideIcons.building;
+      default: return LucideIcons.store;
     }
   }
 
@@ -126,36 +127,27 @@ class _SedeFormScreenState extends State<SedeFormScreen> {
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: _iconosDisponibles.map((entry) {
-                  final valor = entry.$1;
-                  final etiqueta = entry.$2;
+                children: _iconosDisponibles.map((valor) {
                   final seleccionado = _iconoSeleccionado == valor;
-                  return GestureDetector(
+                  final primary = Theme.of(context).colorScheme.primary;
+                final primaryLight = primary.withAlpha(13);
+                return GestureDetector(
                     onTap: () => setState(() => _iconoSeleccionado = valor),
                     child: Container(
-                      width: 80,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
-                        color: seleccionado ? Colors.teal.shade50 : null,
-                        borderRadius: BorderRadius.circular(8),
+                        color: seleccionado ? primaryLight : null,
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: seleccionado ? Colors.teal : Colors.grey.shade300,
+                          color: seleccionado ? primary : Colors.grey.shade300,
                           width: seleccionado ? 2 : 1,
                         ),
                       ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            _iconoDeSede(valor),
-                            color: seleccionado ? Colors.teal : Colors.grey.shade600,
-                            size: 28,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(etiqueta, style: TextStyle(
-                            fontSize: 10,
-                            color: seleccionado ? Colors.teal : Colors.grey.shade600,
-                          )),
-                        ],
+                      child: Icon(
+                        _iconoDeSede(valor),
+                        color: seleccionado ? primary : Colors.grey.shade600,
+                        size: 28,
                       ),
                     ),
                   );

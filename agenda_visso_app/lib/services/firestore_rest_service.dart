@@ -546,11 +546,24 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'excepciones'}],
+        'where': {
+          'fieldFilter': {
+            'field': {'fieldPath': 'profesionalId'},
+            'op': 'EQUAL',
+            'value': {'stringValue': profesionalId},
+          },
+        },
       },
     });
-    return docs
-        .map((r) => Excepcion.fromMap(_fieldsToMap(r['document']['fields'])))
-        .toList();
+    return docs.map((r) {
+      final e = Excepcion.fromMap(_fieldsToMap(r['document']['fields']));
+      if (e.id.isEmpty) {
+        final name = r['document']['name'] as String;
+        final docId = name.split('/').last;
+        return e.copyWith(id: docId);
+      }
+      return e;
+    }).toList();
   }
 
   Future<List<Excepcion>> getExcepcionesEnRango({
@@ -567,6 +580,13 @@ class FirestoreRestService {
           'compositeFilter': {
             'op': 'AND',
             'filters': [
+              {
+                'fieldFilter': {
+                  'field': {'fieldPath': 'profesionalId'},
+                  'op': 'EQUAL',
+                  'value': {'stringValue': profesionalId},
+                },
+              },
               {
                 'fieldFilter': {
                   'field': {'fieldPath': 'fecha'},
@@ -586,13 +606,21 @@ class FirestoreRestService {
         },
       },
     });
-    return docs
-        .map((r) => Excepcion.fromMap(_fieldsToMap(r['document']['fields'])))
-        .toList();
+    return docs.map((r) {
+      final e = Excepcion.fromMap(_fieldsToMap(r['document']['fields']));
+      if (e.id.isEmpty) {
+        final name = r['document']['name'] as String;
+        final docId = name.split('/').last;
+        return e.copyWith(id: docId);
+      }
+      return e;
+    }).toList();
   }
 
   Future<void> addExcepcion(Excepcion excepcion) async {
-    await _setDocument('excepciones', excepcion.id, excepcion.toMap());
+    final id = excepcion.id.isEmpty ? _uuid.v4() : excepcion.id;
+    final e = excepcion.copyWith(id: id);
+    await _setDocument('excepciones', id, e.toMap());
   }
 
   Future<void> deleteExcepcion(String id) async {

@@ -32,50 +32,59 @@ class ResumenHorariosScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = context.watch<ConfigProvider>();
+    final isDesktop = MediaQuery.of(context).size.width > 768;
+    final body = config.cargando
+        ? const Center(child: CircularProgressIndicator())
+        : config.sedes.isEmpty
+            ? const Center(child: Text('No hay sedes registradas', style: TextStyle(color: Colors.grey)))
+            : ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: config.sedes.length,
+                itemBuilder: (context, i) {
+                  final sede = config.sedes[i];
+                  final horariosSede = config.horarios.where((h) => h.sedeId == sede.id).toList();
+                  final tieneHorarios = horariosSede.isNotEmpty;
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: tieneHorarios ? Colors.indigo.withAlpha(30) : Colors.grey.withAlpha(30),
+                        child: Icon(
+                          Icons.calendar_month,
+                          color: tieneHorarios ? Colors.indigo : Colors.grey,
+                        ),
+                      ),
+                      title: Text(sede.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        _resumenSede(sede, config.horarios),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: tieneHorarios ? Colors.grey.shade700 : Colors.grey,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => SedeHorariosScreen(sede: sede)),
+                        );
+                      },
+                    ),
+                  );
+                },
+              );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Horarios por sede')),
-      body: config.cargando
-          ? const Center(child: CircularProgressIndicator())
-          : config.sedes.isEmpty
-              ? const Center(child: Text('No hay sedes registradas', style: TextStyle(color: Colors.grey)))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: config.sedes.length,
-                  itemBuilder: (context, i) {
-                    final sede = config.sedes[i];
-                    final horariosSede = config.horarios.where((h) => h.sedeId == sede.id).toList();
-                    final tieneHorarios = horariosSede.isNotEmpty;
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: tieneHorarios ? Colors.indigo.withAlpha(30) : Colors.grey.withAlpha(30),
-                          child: Icon(
-                            Icons.calendar_month,
-                            color: tieneHorarios ? Colors.indigo : Colors.grey,
-                          ),
-                        ),
-                        title: Text(sede.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(
-                          _resumenSede(sede, config.horarios),
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: tieneHorarios ? Colors.grey.shade700 : Colors.grey,
-                          ),
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => SedeHorariosScreen(sede: sede)),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
+      body: isDesktop
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: body,
+              ),
+            )
+          : body,
     );
   }
 }

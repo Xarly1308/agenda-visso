@@ -79,6 +79,25 @@ class _TiposConsultaScreenState extends State<TiposConsultaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width > 768;
+    final body = _cargando
+        ? const Center(child: CircularProgressIndicator())
+        : _tipos.isEmpty
+            ? const Center(child: Text('No hay tipos de consulta', style: TextStyle(color: Colors.grey)))
+            : ListView.builder(
+                itemCount: _tipos.length,
+                itemBuilder: (_, i) {
+                  final tipo = _tipos[i];
+                  return ListTile(
+                    title: Text(tipo.nombre),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed: () => _eliminar(tipo),
+                    ),
+                  );
+                },
+              );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tipos de consulta'),
@@ -86,23 +105,14 @@ class _TiposConsultaScreenState extends State<TiposConsultaScreen> {
           IconButton(icon: const Icon(Icons.add), onPressed: _agregar),
         ],
       ),
-      body: _cargando
-          ? const Center(child: CircularProgressIndicator())
-          : _tipos.isEmpty
-              ? const Center(child: Text('No hay tipos de consulta', style: TextStyle(color: Colors.grey)))
-              : ListView.builder(
-                  itemCount: _tipos.length,
-                  itemBuilder: (_, i) {
-                    final tipo = _tipos[i];
-                    return ListTile(
-                      title: Text(tipo.nombre),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        onPressed: () => _eliminar(tipo),
-                      ),
-                    );
-                  },
-                ),
+      body: isDesktop
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: body,
+              ),
+            )
+          : body,
     );
   }
 }

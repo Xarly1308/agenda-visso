@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import '../../utils/app_theme.dart';
+import '../privacy_policy_screen.dart';
 
 class PasoDatos extends StatelessWidget {
   final GlobalKey<FormState> formKey;
@@ -14,6 +16,7 @@ class PasoDatos extends StatelessWidget {
   final ValueChanged<bool> onYaEraPacienteChanged;
   final VoidCallback onConfirmar;
   final bool cargando;
+  final List<String> tiposConsulta;
 
   const PasoDatos({
     super.key,
@@ -28,13 +31,12 @@ class PasoDatos extends StatelessWidget {
     required this.onYaEraPacienteChanged,
     required this.onConfirmar,
     required this.cargando,
+    this.tiposConsulta = const [
+      'Consulta para lentes oftálmicos',
+      'Consulta para lentes de contacto',
+      'Ortóptica',
+    ],
   });
-
-  static const _tiposConsulta = [
-    'Consulta para lentes oftálmicos',
-    'Consulta para lentes de contacto',
-    'Ortóptica',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +126,7 @@ class PasoDatos extends StatelessWidget {
               filled: true,
               fillColor: Colors.white,
             ),
-            items: _tiposConsulta.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+            items: tiposConsulta.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
             onChanged: onTipoConsultaChanged,
           ),
           const SizedBox(height: 16),
@@ -143,6 +145,32 @@ class PasoDatos extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 48),
+          Center(
+            child: Text.rich(
+              TextSpan(
+                text: 'Al agendar aceptas la ',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                children: [
+                  TextSpan(
+                    text: 'Política de Privacidad',
+                    style: TextStyle(
+                      color: AppTheme.primaryContainer,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PrivacyPolicyScreen(),
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

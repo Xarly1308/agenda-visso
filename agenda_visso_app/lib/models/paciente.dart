@@ -4,6 +4,7 @@ class Paciente {
   final String nombres;
   final String telefono;
   final String? email;
+  final String? fotoUrl;
   final bool yaEraPaciente;
   final DateTime creadoEn;
 
@@ -13,6 +14,7 @@ class Paciente {
     required this.nombres,
     required this.telefono,
     this.email,
+    this.fotoUrl,
     this.yaEraPaciente = false,
     DateTime? creadoEn,
   }) : creadoEn = creadoEn ?? DateTime.now();
@@ -23,6 +25,7 @@ class Paciente {
         'nombres': nombres,
         'telefono': telefono,
         'email': email,
+        'fotoUrl': fotoUrl,
         'yaEraPaciente': yaEraPaciente,
         'creadoEn': creadoEn.toIso8601String(),
       };
@@ -33,6 +36,7 @@ class Paciente {
         nombres: map['nombres'] as String? ?? '',
         telefono: map['telefono'] as String? ?? '',
         email: map['email'] as String?,
+        fotoUrl: map['fotoUrl'] as String?,
         yaEraPaciente: map['yaEraPaciente'] as bool? ?? false,
         creadoEn: DateTime.tryParse(map['creadoEn'] as String? ?? '') ?? DateTime.now(),
       );
@@ -43,6 +47,7 @@ class Paciente {
     String? nombres,
     String? telefono,
     String? email,
+    String? fotoUrl,
     bool? yaEraPaciente,
     DateTime? creadoEn,
   }) {
@@ -52,6 +57,7 @@ class Paciente {
       nombres: nombres ?? this.nombres,
       telefono: telefono ?? this.telefono,
       email: email ?? this.email,
+      fotoUrl: fotoUrl ?? this.fotoUrl,
       yaEraPaciente: yaEraPaciente ?? this.yaEraPaciente,
       creadoEn: creadoEn ?? this.creadoEn,
     );

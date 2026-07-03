@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/auth_provider.dart';
 import '../providers/agenda_provider.dart';
 import '../services/app_update_service.dart';
@@ -10,7 +11,7 @@ import 'excepciones_screen.dart';
 import 'resumen_horarios_screen.dart';
 import 'tipos_consulta_screen.dart';
 
-const String kAppVersion = '1.3.6';
+const String kAppVersion = '1.3.10';
 
 class ConfigScreen extends StatefulWidget {
   const ConfigScreen({super.key});
@@ -50,6 +51,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Column(
       children: [
         Expanded(
@@ -59,15 +61,15 @@ class _ConfigScreenState extends State<ConfigScreen> {
               _SectionHeader(title: 'Configuración'),
               const SizedBox(height: 8),
               _CardButton(
-                icon: Icons.store,
+                icon: LucideIcons.store,
                 title: 'Gestionar Sedes',
                 subtitle: 'Agregar, editar y eliminar sedes',
-                color: Colors.teal,
+                color: primary,
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConfigSedesScreen())),
               ),
               const SizedBox(height: 8),
               _CardButton(
-                icon: Icons.calendar_month,
+                icon: LucideIcons.calendar,
                 title: 'Horarios por sede',
                 subtitle: 'Configurar días y horarios de atención por sede',
                 color: Colors.indigo,
@@ -75,7 +77,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
               ),
               const SizedBox(height: 8),
               _CardButton(
-                icon: Icons.block,
+                icon: LucideIcons.ban,
                 title: 'Días no laborables',
                 subtitle: 'Marcar vacaciones, festivos y ausencias',
                 color: Colors.orange,
@@ -83,10 +85,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
               ),
               const SizedBox(height: 8),
               _CardButton(
-                icon: Icons.local_hospital,
+                 icon: LucideIcons.heartPulse,
                 title: 'Tipos de consulta',
                 subtitle: 'Agregar o eliminar tipos de consulta',
-                color: Colors.teal,
+                color: primary,
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TiposConsultaScreen())),
               ),
 
@@ -94,7 +96,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
               _SectionHeader(title: 'Mantenimiento'),
               const SizedBox(height: 8),
               _CardButton(
-                icon: Icons.cleaning_services,
+                icon: LucideIcons.eraser,
                 title: 'Limpiar citas antiguas',
                 subtitle: 'Eliminar citas de días anteriores al de hoy',
                 color: Colors.brown,
@@ -102,7 +104,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
               ),
               const SizedBox(height: 8),
               _CardButton(
-                icon: Icons.restart_alt,
+                icon: LucideIcons.rotateCcw,
                 title: 'Resetear semana actual',
                 subtitle: 'Eliminar todas las citas de esta semana',
                 color: Colors.red,
@@ -113,7 +115,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
               _SectionHeader(title: 'Compartir'),
               const SizedBox(height: 8),
               _CardButton(
-                icon: Icons.share,
+                icon: LucideIcons.share2,
                 title: 'Enviar invitación por WhatsApp',
                 subtitle: 'Compartir link de registro con pacientes',
                 color: Colors.green,
@@ -124,7 +126,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
               _SectionHeader(title: 'Información'),
               const SizedBox(height: 8),
               _CardButton(
-                icon: Icons.info_outline,
+                icon: LucideIcons.info,
                 title: 'Acerca de',
                 subtitle: 'Versión $kAppVersion — información y actualizaciones',
                 color: Colors.blueGrey,
@@ -139,7 +141,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 _SectionHeader(title: 'Desarrollador', color: Colors.red),
                 const SizedBox(height: 8),
                 _CardButton(
-                  icon: Icons.cleaning_services,
+                icon: LucideIcons.eraser,
                   title: 'Limpiar datos',
                   subtitle: 'Selecciona qué datos eliminar',
                   color: Colors.red,
@@ -154,13 +156,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
         const Divider(height: 1),
         SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             child: Card(
               color: Colors.red.shade50,
               child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 leading: const CircleAvatar(
                   backgroundColor: Colors.red,
-                  child: Icon(Icons.logout, color: Colors.white),
+                  child: Icon(LucideIcons.logOut, color: Colors.white, size: 22),
                 ),
                 title: const Text('Cerrar sesión', style: TextStyle(color: Colors.red)),
                 onTap: () => context.read<AuthProvider>().logout(),
@@ -222,7 +225,7 @@ class _CardButton extends StatelessWidget {
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(LucideIcons.chevronRight),
         onTap: onTap,
       ),
     );
@@ -257,7 +260,7 @@ void _mostrarAcercaDe(BuildContext context) {
       ),
       actions: [
         OutlinedButton.icon(
-          icon: const Icon(Icons.update, size: 18),
+          icon: const Icon(LucideIcons.refreshCw, size: 18),
           label: const Text('Buscar actualizaciones'),
           onPressed: () async {
             Navigator.pop(ctx);
@@ -322,7 +325,7 @@ Future<void> _buscarActualizacion(BuildContext context) async {
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Ahora no')),
         FilledButton.icon(
-          icon: const Icon(Icons.download, size: 18),
+          icon: const Icon(LucideIcons.download, size: 18),
           label: const Text('Descargar'),
           onPressed: () => Navigator.pop(ctx, true),
         ),
@@ -386,7 +389,7 @@ Future<void> _mostrarSelectorLimpieza(BuildContext context) async {
     'citas': _InfoColeccion(Icons.calendar_today, 'Citas', 'Todas las citas agendadas'),
     'sedes': _InfoColeccion(Icons.store, 'Sedes', 'Todas las sedes registradas'),
     'horarios': _InfoColeccion(Icons.schedule, 'Horarios', 'Horarios de atención configurados'),
-    'tipos_consulta': _InfoColeccion(Icons.local_hospital, 'Tipos de consulta', 'Tipos de consulta configurados'),
+    'tipos_consulta': _InfoColeccion(LucideIcons.heartPulse, 'Tipos de consulta', 'Tipos de consulta configurados'),
     'excepciones': _InfoColeccion(Icons.block, 'Excepciones', 'Días no laborables marcados'),
     'pacientes': _InfoColeccion(Icons.people, 'Pacientes', 'Todos los pacientes registrados'),
     'notificaciones': _InfoColeccion(Icons.notifications, 'Notificaciones', 'Historial de notificaciones'),
@@ -429,7 +432,7 @@ Future<void> _mostrarSelectorLimpieza(BuildContext context) async {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
             FilledButton.icon(
-              icon: const Icon(Icons.delete_sweep, size: 18),
+              icon: const Icon(LucideIcons.trash2, size: 18),
               label: Text('Limpiar (${seleccion.length})'),
               onPressed: seleccion.isEmpty
                   ? null
@@ -450,7 +453,7 @@ Future<void> _mostrarSelectorLimpieza(BuildContext context) async {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.red),
+          const Icon(LucideIcons.alertTriangle, size: 48, color: Colors.red),
           const SizedBox(height: 12),
           const Text('Se eliminarán los siguientes datos:'),
           const SizedBox(height: 8),
@@ -560,7 +563,7 @@ class _DownloadDialogState extends State<_DownloadDialog> {
             const Text('No cierres la aplicación', style: TextStyle(fontSize: 12, color: Colors.orange)),
           ],
           if (_termino && _progreso == 1.0) ...[
-            const Icon(Icons.check_circle, color: Colors.green, size: 48),
+            const Icon(LucideIcons.checkCircle2, color: Colors.green, size: 48),
             const SizedBox(height: 12),
             const Text('La descarga ha finalizado.'),
             const SizedBox(height: 4),
@@ -576,7 +579,7 @@ class _DownloadDialogState extends State<_DownloadDialog> {
             ),
           ],
           if (_termino && _progreso < 1.0) ...[
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const Icon(LucideIcons.alertCircle, color: Colors.red, size: 48),
             const SizedBox(height: 12),
             Text(_estado),
             const SizedBox(height: 16),

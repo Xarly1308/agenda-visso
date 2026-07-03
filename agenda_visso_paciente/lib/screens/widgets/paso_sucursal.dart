@@ -16,6 +16,14 @@ class PasoSucursal extends StatelessWidget {
     required this.onSedeSeleccionada,
   });
 
+  static String nombreSedeDisplay(String sedeId, String nombre) {
+    const nombres = {
+      'acropolis-visso': 'Sede Bogotá',
+      'visso-funza': 'Sede Funza',
+    };
+    return nombres[sedeId] ?? nombre;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -105,7 +113,7 @@ class PasoSucursal extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  sede.nombre,
+                                  nombreSedeDisplay(sede.id, sede.nombre),
                                   style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.primary),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -165,12 +173,7 @@ class PasoSucursal extends StatelessWidget {
     final assetPath = assets[sede.id];
 
     if (assetPath != null) {
-      return Image.asset(
-        assetPath,
-        height: 350,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildPlaceholderImagen(),
-      );
+      return _AnimatedSedeImage(assetPath: assetPath, height: 350);
     }
     return _buildPlaceholderImagen();
   }
@@ -237,6 +240,72 @@ class PasoSucursal extends StatelessWidget {
     ];
 
     return ReviewsCarousel(reviews: reviews);
+  }
+}
+
+class _AnimatedSedeImage extends StatefulWidget {
+  final String assetPath;
+  final double height;
+  const _AnimatedSedeImage({required this.assetPath, required this.height});
+
+  @override
+  State<_AnimatedSedeImage> createState() => _AnimatedSedeImageState();
+}
+
+class _AnimatedSedeImageState extends State<_AnimatedSedeImage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<AlignmentGeometry?> _animation;
+  bool _isHovering = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    );
+    _animation = AlignmentGeometryTween(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    ).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (event) {
+        setState(() => _isHovering = true);
+        _controller.repeat(reverse: true);
+      },
+      onExit: (event) {
+        setState(() => _isHovering = false);
+        _controller.stop();
+        _controller.reset();
+      },
+      child: AnimatedBuilder(
+        animation: _animation,
+        builder: (context, child) {
+          return Image.asset(
+            widget.assetPath,
+            height: widget.height,
+            fit: BoxFit.cover,
+            alignment: _animation.value ?? Alignment.topCenter,
+            errorBuilder: (context, error, stackTrace) => Container(
+              height: widget.height,
+              color: Colors.grey.shade200,
+              child: const Center(child: Icon(Icons.store, color: Colors.grey, size: 48)),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 

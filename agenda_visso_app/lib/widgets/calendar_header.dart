@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../utils/colombian_holidays.dart';
 
 class CalendarHeader extends StatelessWidget {
   final DateTime selectedDate;
   final void Function(DateTime) onDateSelected;
   final VoidCallback? onDatePickerTap;
+  final VoidCallback? onPreviousCita;
+  final VoidCallback? onNextCita;
+  final bool isDesktop;
   final Set<String> excepcionFechas;
+  final Set<String> citaFechas;
 
   const CalendarHeader({
     super.key,
     required this.selectedDate,
     required this.onDateSelected,
     this.onDatePickerTap,
+    this.onPreviousCita,
+    this.onNextCita,
+    this.isDesktop = false,
     this.excepcionFechas = const {},
+    this.citaFechas = const {},
   });
 
   DateTime _inicioSemana(DateTime d) =>
@@ -43,9 +52,79 @@ class CalendarHeader extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
+              if (onPreviousCita != null || onNextCita != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onPreviousCita != null)
+                      isDesktop
+                          ? GestureDetector(
+                              onTap: onPreviousCita,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.chevronLeft, size: 16, color: Colors.black87),
+                                    const SizedBox(width: 6),
+                                    const Text('Cita previa',
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.black87)),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(6),
+                                onTap: onPreviousCita,
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                  child: Icon(LucideIcons.chevronLeft, size: 16),
+                                ),
+                              ),
+                            ),
+                    if (onNextCita != null)
+                      isDesktop
+                          ? GestureDetector(
+                              onTap: onNextCita,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('Cita próxima',
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.black87)),
+                                    const SizedBox(width: 6),
+                                    const Icon(LucideIcons.chevronRight, size: 16, color: Colors.black87),
+                                  ],
+                                ),
+                            ),
+                          )
+                        : Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: onNextCita,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                child: Icon(LucideIcons.chevronRight, size: 16),
+                              ),
+                            ),
+                          ),
+                  ],
+                ),
               if (onDatePickerTap != null)
                 IconButton(
-                  icon: const Icon(Icons.calendar_today, size: 18),
+                  icon: const Icon(LucideIcons.calendarDays, size: 18),
                   onPressed: onDatePickerTap,
                   constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                   padding: EdgeInsets.zero,
@@ -77,6 +156,7 @@ class CalendarHeader extends StatelessWidget {
                         dia.year == hoy.year;
                     final esFestivo = ColombianHolidays.esFestivo(dia);
                     final esExcepcion = excepcionFechas.contains(_formatDate(dia));
+                    final esConCita = citaFechas.contains(_formatDate(dia));
                     return _DiaCelda(
                       dia: dia,
                       nombre: diasSemana[i],
@@ -84,6 +164,7 @@ class CalendarHeader extends StatelessWidget {
                       esHoy: esHoy,
                       esFestivo: esFestivo,
                       esExcepcion: esExcepcion,
+                      esConCita: esConCita,
                       onTap: () => onDateSelected(dia),
                     );
                   }),
@@ -119,6 +200,7 @@ class _DiaCelda extends StatelessWidget {
   final bool esHoy;
   final bool esFestivo;
   final bool esExcepcion;
+  final bool esConCita;
   final VoidCallback onTap;
 
   const _DiaCelda({
@@ -128,6 +210,7 @@ class _DiaCelda extends StatelessWidget {
     required this.esHoy,
     required this.esFestivo,
     required this.esExcepcion,
+    required this.esConCita,
     required this.onTap,
   });
 
@@ -135,6 +218,7 @@ class _DiaCelda extends StatelessWidget {
     if (seleccionado) return Colors.white;
     if (esFestivo) return Colors.red;
     if (esExcepcion) return Colors.orange;
+    if (esConCita) return const Color(0xFFE65100);
     return null;
   }
 
@@ -142,6 +226,7 @@ class _DiaCelda extends StatelessWidget {
     if (seleccionado) return const Color(0xFF003B74);
     if (esFestivo) return Colors.red.shade50;
     if (esExcepcion) return Colors.orange.shade50;
+    if (esConCita) return Colors.orange.shade50;
     return Colors.transparent;
   }
 
@@ -187,9 +272,11 @@ class _DiaCelda extends StatelessWidget {
                             ? Colors.red
                             : esExcepcion
                                 ? Colors.orange.shade800
-                                : esHoy
-                                    ? const Color(0xFF003B74)
-                                    : Colors.black87,
+                                : esConCita
+                                    ? const Color(0xFFE65100)
+                                    : esHoy
+                                        ? const Color(0xFF003B74)
+                                        : Colors.black87,
                   )),
             ),
           ],

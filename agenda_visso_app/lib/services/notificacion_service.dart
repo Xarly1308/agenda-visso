@@ -159,27 +159,21 @@ class NotificacionService {
 
   static void _onCitaAdded(
       Cita cita, BuildContext context, String profesionalId) async {
-    final creadoPor = cita.creadoPor;
-    if (creadoPor == profesionalId) return;
+    if (cita.notificada) return;
 
     HapticFeedback.heavyImpact();
     SystemSound.play(SystemSoundType.alert);
 
     final mensaje =
-        'Nueva cita agendada: ${formatoFecha(cita.fecha)} a las ${formato12h(cita.hora)}';
+        'Nueva cita agendada: ${formatoFechaLarga(cita.fecha.toIso8601String().split('T')[0], cita.hora)}';
     final tipo = 'nueva_cita';
-
-    final existentes = await _rest.getNotificaciones(profesionalId);
-    final yaExiste = existentes.any(
-        (n) => n.citaId == cita.id && n.tipo == tipo);
-    if (yaExiste) return;
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(mensaje),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.teal,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           duration: const Duration(seconds: 5),
         ),
       );
@@ -193,9 +187,10 @@ class NotificacionService {
           citaId: cita.id,
           tipo: tipo,
           mensaje: mensaje,
-          subtitulo: creadoPor != null ? 'Desde la app' : 'Desde la web',
+          subtitulo: cita.creadoPor != null ? 'Desde la app' : 'Desde la web',
         ),
       );
+      await _rest.updateCitaNotificada(cita.id);
     } catch (e) {
       debugPrint('Error adding notification: $e');
     }
@@ -208,10 +203,10 @@ class NotificacionService {
     String tipo;
 
     if (estado == 'cancelada') {
-      mensaje = 'Cita cancelada: ${formatoFecha(cita.fecha)} a las ${formato12h(cita.hora)}';
+      mensaje = 'Cita cancelada: ${formatoFechaLarga(cita.fecha.toIso8601String().split('T')[0], cita.hora)}';
       tipo = 'cancelada';
     } else if (estado == 'confirmada') {
-      mensaje = 'Cita confirmada: ${formatoFecha(cita.fecha)} a las ${formato12h(cita.hora)}';
+      mensaje = 'Cita confirmada: ${formatoFechaLarga(cita.fecha.toIso8601String().split('T')[0], cita.hora)}';
       tipo = 'confirmada';
     } else {
       return;
@@ -227,7 +222,7 @@ class NotificacionService {
         SnackBar(
           content: Text(mensaje),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: estado == 'cancelada' ? Colors.red : Colors.teal,
+          backgroundColor: estado == 'cancelada' ? Colors.red : Theme.of(context).colorScheme.primary,
           duration: const Duration(seconds: 5),
         ),
       );

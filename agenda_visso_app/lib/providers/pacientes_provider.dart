@@ -13,6 +13,7 @@ class PacientesProvider extends ChangeNotifier {
   SortMode _sortMode = SortMode.masReciente;
 
   List<Paciente> get resultados => _resultados;
+  List<Paciente> get todos => _todos;
   bool get cargando => _cargando;
   SortMode get sortMode => _sortMode;
 

@@ -30,13 +30,13 @@ class NotificacionProvider extends ChangeNotifier {
   Future<void> cargar() async {
     if (_profesionalId == null) return;
     _cargando = true;
+    notifyListeners();
 
     try {
       _notificaciones = await _service.getNotificaciones(_profesionalId!);
       _noLeidas = _notificaciones.where((n) => !n.leida).length;
     } catch (_) {
-      _notificaciones = [];
-      _noLeidas = 0;
+      // mantiene el estado anterior en caso de error
     }
 
     _cargando = false;

@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 String formato12h(String hora24) {
   final partes = hora24.split(':');
   final h = int.parse(partes[0]);
@@ -12,4 +14,10 @@ String formatoFecha(DateTime fecha) {
   final m = fecha.month.toString().padLeft(2, '0');
   final y = fecha.year.toString();
   return '$d/$m/$y';
+}
+
+String formatoFechaLarga(String fechaStr, String hora24) {
+  final fecha = DateTime.tryParse(fechaStr) ?? DateTime.now();
+  final df = DateFormat("EEEE d 'de' MMMM", 'es');
+  return '${df.format(fecha)} ${formato12h(hora24)}';
 }

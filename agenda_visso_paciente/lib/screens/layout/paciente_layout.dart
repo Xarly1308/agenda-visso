@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import '../../utils/app_theme.dart';
+import '../privacy_policy_screen.dart';
 
 class PacienteLayout extends StatelessWidget {
   final int currentStep;
@@ -43,10 +45,11 @@ class PacienteLayout extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          ),
-                        ),
                       ),
-                    ],
+                    ),
+                  ),
+                  _buildFooter(context),
+                ],
                   ),
                 ),
               ],
@@ -105,11 +108,18 @@ class PacienteLayout extends StatelessWidget {
                 ),
               ),
             ),
-            body: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: child,
-              ),
+            body: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: child,
+                    ),
+                  ),
+                ),
+                _buildFooter(context),
+              ],
             ),
           );
         }
@@ -242,6 +252,40 @@ class PacienteLayout extends StatelessWidget {
             child: Text('Sedes', style: TextStyle(color: Colors.grey.shade700, fontSize: 16)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Center(
+        child: Text.rich(
+          TextSpan(
+            text: '© 2026 Acropolis Visso SAS - ',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+            children: [
+              TextSpan(
+                text: 'Política de Privacidad',
+                style: TextStyle(
+                  color: AppTheme.primaryContainer,
+                  decoration: TextDecoration.underline,
+                  fontSize: 12,
+                ),
+                recognizer: TapGestureRecognizer()
+                  ..onTap = () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PrivacyPolicyScreen(),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

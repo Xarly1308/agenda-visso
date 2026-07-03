@@ -146,6 +146,7 @@ class ConfigProvider extends ChangeNotifier {
     final match = excepciones.where((e) =>
         e.fecha.toIso8601String().split('T')[0] == fechaStr);
     for (final e in match) {
+      if (e.id.isEmpty) continue;
       await _service.deleteExcepcion(e.id);
     }
   }

@@ -3,6 +3,7 @@ import '../models/horario.dart';
 import '../models/cita.dart';
 import '../models/paciente.dart';
 import '../models/excepcion.dart';
+import '../models/tipo_consulta.dart';
 import 'firestore_rest_service.dart';
 
 class PacienteService {
@@ -14,6 +15,7 @@ class PacienteService {
   Future<List<Excepcion>> getExcepciones(String profesionalId) => _rest.getExcepciones(profesionalId);
   Future<List<Cita>> getCitas(String profesionalId, DateTime fecha) => _rest.getCitas(profesionalId, fecha);
   Future<Paciente?> buscarPaciente(String documento) => _rest.buscarPaciente(documento);
+  Future<List<TipoConsulta>> getTiposConsulta() => _rest.getTiposConsulta();
 
   Future<Paciente> crearPaciente({
     required String documento,

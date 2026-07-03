@@ -164,7 +164,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
             Text('Citas del mes', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             Center(
-              child: Text('$_totalCitas', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.teal)),
+              child: Text('$_totalCitas', style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
             ),
           ],
         ),

@@ -19,6 +19,14 @@ class PasoConfirmacion extends StatelessWidget {
     required this.onNuevaCita,
   });
 
+  String _nombreSedeDisplay() {
+    const nombres = {
+      'acropolis-visso': 'Sede Bogotá',
+      'visso-funza': 'Sede Funza',
+    };
+    return nombres[sede.id] ?? sede.nombre;
+  }
+
   String _toAmPm(String hora24) {
     final partes = hora24.split(':');
     final h = int.parse(partes[0]);
@@ -65,7 +73,7 @@ class PasoConfirmacion extends StatelessWidget {
                     const Divider(height: 32),
                     _buildDetalleFila(Icons.access_time, _toAmPm(hora)),
                     const Divider(height: 32),
-                    _buildDetalleFila(Icons.location_on, '${sede.nombre}\n${sede.direccion}'),
+                    _buildDetalleFila(Icons.location_on, '${_nombreSedeDisplay()}\n${sede.direccion}'),
                     if (profesionalNombre != null) ...[
                       const Divider(height: 32),
                       _buildDetalleFila(Icons.medical_services, 'Dr(a). $profesionalNombre'),

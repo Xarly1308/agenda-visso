@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/pacientes_provider.dart';
 import '../models/paciente.dart';
 import '../widgets/paciente_profile_sheet.dart';
@@ -45,7 +46,7 @@ class _PacientesScreenState extends State<PacientesScreen> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (_) => PacienteProfileSheet(
         paciente: p,
@@ -72,6 +73,29 @@ class _PacientesScreenState extends State<PacientesScreen> {
       case SortMode.alfabeticoAZ: return Icons.sort_by_alpha;
       case SortMode.alfabeticoZA: return Icons.sort_by_alpha;
     }
+  }
+
+  Widget _infoRow(IconData icon, String text, {bool isTitle = false}) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade500),
+        const SizedBox(width: 6),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: isTitle ? 16 : 14,
+                fontWeight: isTitle ? FontWeight.w600 : FontWeight.normal,
+                color: isTitle ? Colors.black87 : Colors.grey.shade700,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -101,7 +125,7 @@ class _PacientesScreenState extends State<PacientesScreen> {
                           )
                         : null,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     filled: true,
                     fillColor: Colors.grey.shade100,
@@ -170,28 +194,71 @@ class _PacientesScreenState extends State<PacientesScreen> {
                       final iniciales = p.nombres.isNotEmpty
                           ? p.nombres.split(' ').where((w) => w.isNotEmpty).map((w) => w[0]).take(2).join()
                           : '?';
-                      String? subtitulo;
-                      if (p.telefono.isNotEmpty) {
-                        subtitulo = 'Doc: ${p.documento} | Tel: ${p.telefono}';
-                      } else {
-                        subtitulo = 'Doc: ${p.documento}';
-                      }
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.blue.shade100,
-                            child: Text(iniciales,
-                                style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                          title: Text(p.nombres,
-                              style: const TextStyle(fontWeight: FontWeight.w500)),
-                          subtitle: Text(subtitulo),
-                          onTap: () => _mostrarPerfil(p),
-                          trailing: FilledButton.tonalIcon(
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Nueva cita'),
-                            onPressed: () => _nuevaCita(p),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _infoRow(Icons.person_outline, p.nombres, isTitle: true),
+                                        const SizedBox(height: 4),
+                                        _infoRow(Icons.badge_outlined, 'Doc: ${p.documento}'),
+                                        const SizedBox(height: 2),
+                                        _infoRow(Icons.phone_outlined, 'Tel: ${p.telefono}'),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: Colors.blue.shade100,
+                                    backgroundImage: p.fotoUrl != null ? NetworkImage(p.fotoUrl!) : null,
+                                    child: p.fotoUrl == null
+                                        ? Text(iniciales,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      icon: const Icon(LucideIcons.pencil, size: 18),
+                                      label: const Text('Editar datos'),
+                                      style: OutlinedButton.styleFrom(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        minimumSize: const Size(0, 36),
+                                      ),
+                                      onPressed: () => _mostrarPerfil(p),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: FilledButton.icon(
+                                      icon: const Icon(LucideIcons.plus, size: 18),
+                                      label: const Text('Nueva cita'),
+                                      style: FilledButton.styleFrom(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        minimumSize: const Size(0, 36),
+                                      ),
+                                      onPressed: () => _nuevaCita(p),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       );

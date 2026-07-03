@@ -2,16 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../models/paciente.dart';
-import '../models/notificacion.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../models/sede.dart';
 import '../models/excepcion.dart';
+import '../models/tipo_consulta.dart';
+import '../models/notificacion.dart';
+import '../models/paciente.dart';
 import '../providers/agenda_provider.dart';
 import '../providers/auth_provider.dart';
-import '../models/sede.dart';
-import '../models/tipo_consulta.dart';
-import '../utils/calculador_slots.dart';
-import '../utils/formato_hora.dart';
 import '../services/firestore_service.dart';
+import '../utils/formato_hora.dart';
+import '../utils/calculador_slots.dart';
+
+IconData _iconoDeSede(String icono) {
+  switch (icono) {
+    case 'store': return LucideIcons.store;
+    case 'medical_services': return LucideIcons.heartPulse;
+    case 'visibility': return LucideIcons.eye;
+    case 'local_hospital': return LucideIcons.stethoscope;
+    case 'home': return LucideIcons.home;
+    case 'business': return LucideIcons.building2;
+    case 'location_city': return LucideIcons.building2;
+    case 'apartment': return LucideIcons.building;
+    default: return LucideIcons.store;
+  }
+}
 
 class NuevaCitaScreen extends StatefulWidget {
   final VoidCallback? onCitaCreada;
@@ -206,7 +221,7 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (_) => const _BuscarPacienteSheet(),
     );
@@ -248,7 +263,15 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
         const SizedBox(height: 12),
         ..._sedes.map((s) => Card(
           child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.store)),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              child: Icon(_iconoDeSede(s.icono), color: Colors.white, size: 24),
+            ),
             title: Text(s.nombre),
             subtitle: Text(s.direccion),
             trailing: const Icon(Icons.chevron_right),
@@ -295,7 +318,7 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
                     final f = fechas[i];
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: f.disponible ? Colors.teal.shade100 : Colors.grey.shade200,
+                        backgroundColor: f.disponible ? Theme.of(context).colorScheme.primary.withAlpha(30) : Colors.grey.shade200,
                         child: Text('${f.fecha.day}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
@@ -353,7 +376,7 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
                             return ElevatedButton(
                               onPressed: () => setState(() => _horaSeleccionada = h),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: sel ? Colors.teal : null,
+                                backgroundColor: sel ? Theme.of(context).colorScheme.primary : null,
                                 foregroundColor: sel ? Colors.white : null,
                               ),
                               child: Text(formato12h(h)),

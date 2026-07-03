@@ -13,10 +13,10 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - **OTA**: `ota_update` package + GitHub Releases (PackageInstaller API, `usePackageInstaller: true`)
 
 ## Current State
-- Latest APK: **v1.2.9** — `https://github.com/Xarly1308/agenda-visso/releases/download/v1.2.9/app-release.apk`
+- Latest APK: **v1.3.7** — `https://github.com/Xarly1308/agenda-visso/releases/download/v1.3.7/app-release.apk`
 - OTA version doc: `app_version/latest` in Firestore (updated to 1.2.9)
-- `kAppVersion = '1.2.9'` in `config_screen.dart`
-- `pubspec.yaml version: 1.2.9+1`
+- `kAppVersion = '1.3.7'` in `config_screen.dart`
+- `pubspec.yaml version: 1.3.7+1`
 
 ## Fixes (May 23)
 - **Hoy no se podía agendar** — ambas apps usaban `hoy.add(Duration(days: 1))` como inicio del rango de fechas disponibles. Se cambió a `hoy` para incluir el día actual.

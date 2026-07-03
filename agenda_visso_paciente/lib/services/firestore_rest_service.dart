@@ -7,6 +7,7 @@ import '../models/horario.dart';
 import '../models/cita.dart';
 import '../models/paciente.dart';
 import '../models/excepcion.dart';
+import '../models/tipo_consulta.dart';
 
 class FirestoreRestService {
   static const String _project = 'agendavisso';
@@ -17,9 +18,13 @@ class FirestoreRestService {
   final Uuid _uuid = const Uuid();
 
   Future<Map<String, String>> _headers() async {
-    final user = FirebaseAuth.instance.currentUser;
+    var user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      user = FirebaseAuth.instance.currentUser;
+    }
     if (user == null) throw Exception('No authenticated user');
-    final token = await user.getIdToken();
+    final token = await user.getIdToken().timeout(const Duration(seconds: 8));
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
@@ -289,5 +294,33 @@ class FirestoreRestService {
       throw Exception('Error al crear cita: ${response.statusCode}');
     }
     return cita;
+  }
+
+  Future<List<TipoConsulta>> getTiposConsulta() async {
+    final body = {
+      'structuredQuery': {
+        'from': [{'collectionId': 'tipos_consulta'}],
+        'where': {
+          'fieldFilter': {
+            'field': {'fieldPath': 'activo'},
+            'op': 'EQUAL',
+            'value': {'booleanValue': true}
+          }
+        }
+      }
+    };
+    final response = await _client.post(
+      _url(':runQuery'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al cargar tipos de consulta: ${response.statusCode}');
+    }
+    final results = jsonDecode(response.body) as List;
+    return results
+        .where((r) => r.containsKey('document'))
+        .map((r) => TipoConsulta.fromMap(_fieldsToMap(r['document']['fields'])))
+        .toList();
   }
 }

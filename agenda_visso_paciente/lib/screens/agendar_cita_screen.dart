@@ -44,6 +44,7 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
   final _emailCtrl = TextEditingController();
   bool _yaEraPaciente = false;
   String? _tipoConsulta;
+  List<String> _tiposConsulta = [];
 
   final _formKey = GlobalKey<FormState>();
 
@@ -82,6 +83,9 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
         _profesionalId = _profesionales.keys.first;
         _profesionalNombre = _profesionales.values.first;
       }
+
+      final tipos = await _service.getTiposConsulta();
+      _tiposConsulta = tipos.map((t) => t.nombre).toList();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -313,6 +317,7 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
           onYaEraPacienteChanged: (v) => setState(() => _yaEraPaciente = v),
           onConfirmar: _confirmar,
           cargando: _cargando,
+          tiposConsulta: _tiposConsulta,
         );
       case 3:
         return PasoConfirmacion(

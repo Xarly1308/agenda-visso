@@ -1,5 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:uuid/uuid.dart';
 import '../models/paciente.dart';
 import '../services/firestore_service.dart';
 
@@ -15,6 +19,8 @@ class PacienteProfileSheet extends StatefulWidget {
 
 class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
   final _service = FirestoreService();
+  final _picker = ImagePicker();
+  final _uuid = const Uuid();
   late TextEditingController _nombresCtrl;
   late TextEditingController _docCtrl;
   late TextEditingController _telCtrl;
@@ -22,6 +28,8 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
   bool _editando = false;
   bool _guardando = false;
   bool _eliminando = false;
+  bool _subiendoFoto = false;
+  String? _fotoUrl;
 
   @override
   void initState() {
@@ -31,6 +39,7 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
     _docCtrl = TextEditingController(text: p.documento);
     _telCtrl = TextEditingController(text: p.telefono);
     _emailCtrl = TextEditingController(text: p.email ?? '');
+    _fotoUrl = p.fotoUrl;
   }
 
   @override
@@ -49,6 +58,7 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
       documento: _docCtrl.text.trim(),
       telefono: _telCtrl.text.trim(),
       email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+      fotoUrl: _fotoUrl,
     );
     await _service.updatePaciente(actualizado);
     setState(() {
@@ -115,6 +125,88 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
     return nombres.split(' ').where((w) => w.isNotEmpty).map((w) => w[0]).take(2).join();
   }
 
+  void _mostrarSelectorFoto() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Tomar foto'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _tomarFoto(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Elegir de la galería'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _tomarFoto(ImageSource.gallery);
+              },
+            ),
+            if (_fotoUrl != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Eliminar foto', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _eliminarFoto();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _tomarFoto(ImageSource source) async {
+    final file = await _picker.pickImage(source: source, maxWidth: 512, maxHeight: 512);
+    if (file == null) return;
+
+    setState(() => _subiendoFoto = true);
+    try {
+      final path = 'pacientes/${widget.paciente.id}/${_uuid.v4()}.jpg';
+      final ref = FirebaseStorage.instance.ref().child(path);
+      await ref.putFile(File(file.path));
+      final url = await ref.getDownloadURL();
+
+      final actualizado = widget.paciente.copyWith(fotoUrl: url);
+      await _service.updatePaciente(actualizado);
+
+      setState(() {
+        _fotoUrl = url;
+        _subiendoFoto = false;
+      });
+      widget.onActualizado?.call();
+    } catch (e) {
+      setState(() => _subiendoFoto = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al subir foto: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _eliminarFoto() async {
+    setState(() => _subiendoFoto = true);
+    try {
+      final actualizado = widget.paciente.copyWith(fotoUrl: null);
+      await _service.updatePaciente(actualizado);
+      setState(() {
+        _fotoUrl = null;
+        _subiendoFoto = false;
+      });
+      widget.onActualizado?.call();
+    } catch (e) {
+      setState(() => _subiendoFoto = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = widget.paciente;
@@ -131,10 +223,45 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
         children: [
           handle(),
           const SizedBox(height: 12),
-          CircleAvatar(radius: 36, backgroundColor: Colors.blue.shade100,
-              child: Text(_iniciales, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold))),
+          GestureDetector(
+            onTap: _subiendoFoto ? null : _mostrarSelectorFoto,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: Colors.blue.shade100,
+                  backgroundImage: _fotoUrl != null ? NetworkImage(_fotoUrl!) : null,
+                  child: _fotoUrl == null
+                      ? Text(_iniciales, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold))
+                      : null,
+                ),
+                if (_subiendoFoto)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black38,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: _subiendoFoto ? null : _mostrarSelectorFoto,
+            child: Text(
+              _fotoUrl != null ? 'Cambiar foto' : 'Agregar foto',
+              style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, decoration: TextDecoration.underline),
+              textAlign: TextAlign.center,
+            ),
+          ),
           const SizedBox(height: 8),
-          Text(p.nombres, style: theme.textTheme.titleLarge),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(p.nombres, style: theme.textTheme.titleLarge),
+          ),
           const SizedBox(height: 4),
           Text('Doc: ${p.documento}', style: TextStyle(color: Colors.grey.shade600)),
           const SizedBox(height: 16),
@@ -159,12 +286,9 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (p.telefono.isNotEmpty)
-                _actionBtn(Icons.phone, 'Llamar', _llamar),
-              if (p.telefono.isNotEmpty && (p.email != null && p.email!.isNotEmpty))
-                const SizedBox(width: 12),
-              if (p.email != null && p.email!.isNotEmpty)
-                _actionBtn(Icons.email, 'Correo', _enviarCorreo),
+              _actionBtn(Icons.phone, 'Llamar', p.telefono.isNotEmpty ? _llamar : null),
+              const SizedBox(width: 12),
+              _actionBtn(Icons.email, 'Correo', (p.email != null && p.email!.isNotEmpty) ? _enviarCorreo : null),
             ],
           ),
         const SizedBox(height: 16),
@@ -187,13 +311,17 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
     );
   }
 
-  Widget _actionBtn(IconData icon, String label, VoidCallback onTap) {
+  Widget _actionBtn(IconData icon, String label, VoidCallback? onTap) {
     return ElevatedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 18),
       label: Text(label),
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        foregroundColor: onTap != null ? null : Colors.grey,
+        backgroundColor: onTap != null ? null : Colors.grey.shade100,
+        disabledForegroundColor: Colors.grey,
+        disabledBackgroundColor: Colors.grey.shade100,
       ),
     );
   }
