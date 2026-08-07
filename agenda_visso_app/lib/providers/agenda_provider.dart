@@ -5,6 +5,7 @@ import '../models/horario.dart';
 import '../models/paciente.dart';
 import '../models/notificacion.dart';
 import '../services/firestore_service.dart';
+import '../utils/audit_logger.dart';
 import '../utils/calculador_slots.dart';
 import '../utils/formato_hora.dart';
 
@@ -15,6 +16,7 @@ class AgendaProvider extends ChangeNotifier {
   bool _cargando = false;
   DateTime _fechaSeleccionada = DateTime.now();
   String? _profesionalId;
+  String? _profesionalNombre;
   Timer? _pollTimer;
 
   List<Cita> get citasDelDia => _citasDelDia;
@@ -24,8 +26,9 @@ class AgendaProvider extends ChangeNotifier {
   String? _ultimoError;
   String? get ultimoError => _ultimoError;
 
-  void inicializar(String profesionalId) {
+  void inicializar(String profesionalId, {String? nombre}) {
     _profesionalId = profesionalId;
+    _profesionalNombre = nombre;
     cargarCitas(_fechaSeleccionada);
     _iniciarPolling();
   }
@@ -106,6 +109,15 @@ class AgendaProvider extends ChangeNotifier {
     );
 
     final creada = await _service.addCita(cita);
+    AuditLogger().registrar(
+      categoria: 'citas',
+      accion: 'crear',
+      coleccion: 'citas',
+      documentoId: creada.id,
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+      detalles: 'Nueva cita ${fecha.day}/${fecha.month}/${fecha.year} $hora — ${pacienteNombre ?? pacienteId}',
+    );
     setFecha(fecha);
     return creada;
   }
@@ -113,6 +125,15 @@ class AgendaProvider extends ChangeNotifier {
   Future<void> cambiarEstadoCita(String citaId, String nuevoEstado) async {
     final cita = _citasDelDia.firstWhere((c) => c.id == citaId);
     await _service.updateCitaEstado(citaId, nuevoEstado);
+    AuditLogger().registrar(
+      categoria: 'citas',
+      accion: 'editar',
+      coleccion: 'citas',
+      documentoId: citaId,
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+      detalles: 'Estado cambiado a "$nuevoEstado" — ${cita.pacienteNombre ?? cita.pacienteId}',
+    );
     if (nuevoEstado == 'cancelada') {
       final fechaStr =
           '${cita.fecha.day}/${cita.fecha.month}/${cita.fecha.year}';
@@ -139,11 +160,28 @@ class AgendaProvider extends ChangeNotifier {
   Future<void> cambiarFechaHora(String citaId, DateTime fecha, String hora) async {
     final fechaStr = fecha.toIso8601String().split('T')[0];
     await _service.updateCitaFechaHora(citaId, fechaStr, hora);
+    AuditLogger().registrar(
+      categoria: 'citas',
+      accion: 'editar',
+      coleccion: 'citas',
+      documentoId: citaId,
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+      detalles: 'Reagendada a ${fecha.day}/${fecha.month}/${fecha.year} $hora',
+    );
     await cargarCitas(_fechaSeleccionada);
   }
 
   Future<void> eliminarCita(String citaId) async {
     await _service.deleteCita(citaId);
+    AuditLogger().registrar(
+      categoria: 'citas',
+      accion: 'eliminar',
+      coleccion: 'citas',
+      documentoId: citaId,
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+    );
     await cargarCitas(_fechaSeleccionada);
   }
 
@@ -159,6 +197,14 @@ class AgendaProvider extends ChangeNotifier {
     final inicioSemana = hoy.subtract(Duration(days: hoy.weekday - 1));
     final finSemana = inicioSemana.add(const Duration(days: 6));
     await _service.deleteCitasEnRango(_profesionalId!, inicioSemana, finSemana);
+    AuditLogger().registrar(
+      categoria: 'limpieza',
+      accion: 'eliminar',
+      coleccion: 'citas',
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+      detalles: 'Citas de la semana ${inicioSemana.day}/${inicioSemana.month} - ${finSemana.day}/${finSemana.month}',
+    );
     await cargarCitas(_fechaSeleccionada);
   }
 
@@ -168,6 +214,14 @@ class AgendaProvider extends ChangeNotifier {
     final inicio = DateTime(2020, 1, 1);
     final ayer = hoy.subtract(const Duration(days: 1));
     await _service.deleteCitasEnRango(_profesionalId!, inicio, ayer);
+    AuditLogger().registrar(
+      categoria: 'limpieza',
+      accion: 'eliminar',
+      coleccion: 'citas',
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+      detalles: 'Citas anteriores al ${ayer.day}/${ayer.month}/${ayer.year}',
+    );
     await cargarCitas(_fechaSeleccionada);
   }
 
@@ -181,18 +235,42 @@ class AgendaProvider extends ChangeNotifier {
 
   Future<void> borrarTodaLaAgenda() async {
     await _service.deleteAllCitas();
+    AuditLogger().registrar(
+      categoria: 'limpieza',
+      accion: 'eliminar',
+      coleccion: 'citas',
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+      detalles: 'Todas las citas eliminadas',
+    );
     _citasDelDia = [];
     notifyListeners();
   }
 
   Future<void> borrarTodaLaBaseDeDatos() async {
     await _service.deleteAllCollections();
+    AuditLogger().registrar(
+      categoria: 'limpieza',
+      accion: 'eliminar',
+      coleccion: 'todas',
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+      detalles: 'Toda la base de datos eliminada',
+    );
     _citasDelDia = [];
     notifyListeners();
   }
 
   Future<void> limpiarDatos(List<String> collections) async {
     await _service.deleteSelectedCollections(collections);
+    AuditLogger().registrar(
+      categoria: 'limpieza',
+      accion: 'eliminar',
+      coleccion: collections.join(', '),
+      usuarioId: _profesionalId ?? '',
+      usuarioNombre: _profesionalNombre ?? 'Desconocido',
+      detalles: 'Colecciones eliminadas: ${collections.join(", ")}',
+    );
     if (collections.contains('citas')) {
       _citasDelDia = [];
     }

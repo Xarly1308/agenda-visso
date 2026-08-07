@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/config_provider.dart';
+import '../utils/audit_logger.dart';
 import '../utils/colombian_holidays.dart';
 
 class ExcepcionesScreen extends StatefulWidget {
@@ -105,6 +106,16 @@ class _ExcepcionesScreenState extends State<ExcepcionesScreen> {
     }
     _seleccionTemporal.clear();
     _modoSeleccionMultiple = false;
+    if (guardados > 0) {
+      AuditLogger().registrar(
+        categoria: 'configuracion',
+        accion: 'crear',
+        coleccion: 'excepciones',
+        usuarioId: '',
+        usuarioNombre: 'Desarrollador',
+        detalles: '$guardados día(s) marcados como no laborables',
+      );
+    }
     if (mounted) {
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
@@ -147,6 +158,14 @@ class _ExcepcionesScreenState extends State<ExcepcionesScreen> {
       if (accion == 'quitar') {
         if (!mounted) return;
         await context.read<ConfigProvider>().eliminarExcepcion(fechaStr);
+        AuditLogger().registrar(
+          categoria: 'configuracion',
+          accion: 'eliminar',
+          coleccion: 'excepciones',
+          usuarioId: '',
+          usuarioNombre: 'Desarrollador',
+          detalles: 'Excepción del $fechaStr eliminada (restaurado día laboral)',
+        );
         setState(() {
           _fechasExcepcion.remove(fechaStr);
           _motivos.remove(fechaStr);
@@ -178,6 +197,14 @@ class _ExcepcionesScreenState extends State<ExcepcionesScreen> {
         if (!mounted) return;
         await context.read<ConfigProvider>().eliminarExcepcion(fechaStr);
         await context.read<ConfigProvider>().agregarExcepcion(fecha: dia, motivo: nuevoMotivo);
+        AuditLogger().registrar(
+          categoria: 'configuracion',
+          accion: 'editar',
+          coleccion: 'excepciones',
+          usuarioId: '',
+          usuarioNombre: 'Desarrollador',
+          detalles: 'Motivo de excepción del $fechaStr cambiado a "$nuevoMotivo"',
+        );
         setState(() {
           _motivos[fechaStr] = nuevoMotivo;
         });
@@ -211,6 +238,14 @@ class _ExcepcionesScreenState extends State<ExcepcionesScreen> {
       await context.read<ConfigProvider>().agregarExcepcion(
         fecha: dia,
         motivo: motivo,
+      );
+      AuditLogger().registrar(
+        categoria: 'configuracion',
+        accion: 'crear',
+        coleccion: 'excepciones',
+        usuarioId: '',
+        usuarioNombre: 'Desarrollador',
+        detalles: 'Día $fechaStr marcado como no laborable: "$motivo"',
       );
       if (!mounted) return;
       setState(() {

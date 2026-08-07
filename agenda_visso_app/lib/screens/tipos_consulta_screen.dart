@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:uuid/uuid.dart';
 import '../models/tipo_consulta.dart';
 import '../services/firestore_service.dart';
+import '../utils/audit_logger.dart';
 
 class TiposConsultaScreen extends StatefulWidget {
   const TiposConsultaScreen({super.key});
@@ -53,6 +55,15 @@ class _TiposConsultaScreenState extends State<TiposConsultaScreen> {
     if (nombre == null || nombre.isEmpty) return;
     final tipo = TipoConsulta(id: _uuid.v4(), nombre: nombre);
     await _service.addTipoConsulta(tipo);
+    AuditLogger().registrar(
+      categoria: 'configuracion',
+      accion: 'crear',
+      coleccion: 'tipos_consulta',
+      documentoId: tipo.id,
+      usuarioId: '',
+      usuarioNombre: 'Desarrollador',
+      detalles: 'Tipo de consulta "$nombre" creado',
+    );
     await _cargar();
   }
 
@@ -74,6 +85,15 @@ class _TiposConsultaScreenState extends State<TiposConsultaScreen> {
     );
     if (confirmado != true) return;
     await _service.deleteTipoConsulta(tipo.id);
+    AuditLogger().registrar(
+      categoria: 'configuracion',
+      accion: 'eliminar',
+      coleccion: 'tipos_consulta',
+      documentoId: tipo.id,
+      usuarioId: '',
+      usuarioNombre: 'Desarrollador',
+      detalles: 'Tipo de consulta "${tipo.nombre}" desactivado',
+    );
     await _cargar();
   }
 
@@ -101,9 +121,11 @@ class _TiposConsultaScreenState extends State<TiposConsultaScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tipos de consulta'),
-        actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _agregar),
-        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _agregar,
+        icon: const Icon(LucideIcons.plus),
+        label: const Text('Agregar tipo'),
       ),
       body: isDesktop
           ? Center(

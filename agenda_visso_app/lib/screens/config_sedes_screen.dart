@@ -3,22 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/config_provider.dart';
 import '../models/sede.dart';
+import '../utils/audit_logger.dart';
+import '../utils/sede_icons.dart';
 import 'sede_form_screen.dart';
 import 'sede_horarios_screen.dart';
-
-IconData _iconoDeSede(String icono) {
-  switch (icono) {
-    case 'store': return LucideIcons.store;
-    case 'medical_services': return LucideIcons.heartPulse;
-    case 'visibility': return LucideIcons.eye;
-    case 'local_hospital': return LucideIcons.stethoscope;
-    case 'home': return LucideIcons.home;
-    case 'business': return LucideIcons.building2;
-    case 'location_city': return LucideIcons.building2;
-    case 'apartment': return LucideIcons.building;
-    default: return LucideIcons.store;
-  }
-}
 
 class ConfigSedesScreen extends StatelessWidget {
   const ConfigSedesScreen({super.key});
@@ -29,9 +17,10 @@ class ConfigSedesScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sedes')),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _onAdd(context),
-        child: const Icon(Icons.add),
+        icon: const Icon(LucideIcons.plus),
+        label: const Text('Agregar sede'),
       ),
       body: _buildBody(context, config),
     );
@@ -56,7 +45,7 @@ class ConfigSedesScreen extends StatelessWidget {
                           color: Theme.of(context).colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(_iconoDeSede(sede.icono), color: Colors.white, size: 24),
+                        child: Icon(iconoDeSede(sede.icono), color: Colors.white, size: 24),
                       ),
                     title: Text(sede.nombre),
                     subtitle: Text('${sede.direccion}\n${sede.telefono ?? ""}'),
@@ -125,6 +114,15 @@ class ConfigSedesScreen extends StatelessWidget {
             onPressed: () {
               Navigator.pop(ctx);
               config.eliminarSede(sede.id);
+              AuditLogger().registrar(
+                categoria: 'sedes',
+                accion: 'eliminar',
+                coleccion: 'sedes',
+                documentoId: sede.id,
+                usuarioId: '',
+                usuarioNombre: 'Desarrollador',
+                detalles: 'Sede "${sede.nombre}" desactivada',
+              );
             },
             child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
           ),

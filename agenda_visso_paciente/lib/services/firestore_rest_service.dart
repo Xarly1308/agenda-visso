@@ -13,6 +13,7 @@ class FirestoreRestService {
   static const String _project = 'agendavisso';
   static const String _baseUrl = 'https://firestore.googleapis.com/v1/projects/'
       '$_project/databases/(default)/documents';
+  static const String franquiciaId = '1000';
 
   final http.Client _client = http.Client();
   final Uuid _uuid = const Uuid();
@@ -63,10 +64,24 @@ class FirestoreRestService {
       'structuredQuery': {
         'from': [{'collectionId': 'sedes'}],
         'where': {
-          'fieldFilter': {
-            'field': {'fieldPath': 'activa'},
-            'op': 'EQUAL',
-            'value': {'booleanValue': true}
+          'compositeFilter': {
+            'op': 'AND',
+            'filters': [
+              {
+                'fieldFilter': {
+                  'field': {'fieldPath': 'activa'},
+                  'op': 'EQUAL',
+                  'value': {'booleanValue': true}
+                }
+              },
+              {
+                'fieldFilter': {
+                  'field': {'fieldPath': 'franquiciaId'},
+                  'op': 'EQUAL',
+                  'value': {'stringValue': franquiciaId}
+                }
+              },
+            ]
           }
         }
       }
@@ -301,10 +316,24 @@ class FirestoreRestService {
       'structuredQuery': {
         'from': [{'collectionId': 'tipos_consulta'}],
         'where': {
-          'fieldFilter': {
-            'field': {'fieldPath': 'activo'},
-            'op': 'EQUAL',
-            'value': {'booleanValue': true}
+          'compositeFilter': {
+            'op': 'AND',
+            'filters': [
+              {
+                'fieldFilter': {
+                  'field': {'fieldPath': 'activo'},
+                  'op': 'EQUAL',
+                  'value': {'booleanValue': true}
+                }
+              },
+              {
+                'fieldFilter': {
+                  'field': {'fieldPath': 'franquiciaId'},
+                  'op': 'EQUAL',
+                  'value': {'stringValue': franquiciaId}
+                }
+              },
+            ]
           }
         }
       }

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/sede.dart';
 import '../providers/config_provider.dart';
+import '../utils/audit_logger.dart';
+import '../utils/sede_icons.dart';
 
 class SedeFormScreen extends StatefulWidget {
   final Sede? sede;
@@ -19,31 +21,6 @@ class _SedeFormScreenState extends State<SedeFormScreen> {
   late final TextEditingController _telefonoCtrl;
   bool _editando = false;
   String _iconoSeleccionado = 'store';
-
-  static const _iconosDisponibles = [
-    'store',
-    'medical_services',
-    'visibility',
-    'local_hospital',
-    'home',
-    'business',
-    'location_city',
-    'apartment',
-  ];
-
-  static IconData _iconoDeSede(String icono) {
-    switch (icono) {
-      case 'store': return LucideIcons.store;
-      case 'medical_services': return LucideIcons.heartPulse;
-      case 'visibility': return LucideIcons.eye;
-      case 'local_hospital': return LucideIcons.stethoscope;
-      case 'home': return LucideIcons.home;
-      case 'business': return LucideIcons.building2;
-      case 'location_city': return LucideIcons.building2;
-      case 'apartment': return LucideIcons.building;
-      default: return LucideIcons.store;
-    }
-  }
 
   @override
   void initState() {
@@ -83,8 +60,26 @@ class _SedeFormScreenState extends State<SedeFormScreen> {
 
     if (_editando) {
       await config.actualizarSede(data);
+      AuditLogger().registrar(
+        categoria: 'sedes',
+        accion: 'editar',
+        coleccion: 'sedes',
+        documentoId: data.id,
+        usuarioId: '',
+        usuarioNombre: 'Desarrollador',
+        detalles: 'Sede "${data.nombre}" actualizada',
+      );
     } else {
       await config.agregarSede(data);
+      AuditLogger().registrar(
+        categoria: 'sedes',
+        accion: 'crear',
+        coleccion: 'sedes',
+        documentoId: data.id,
+        usuarioId: '',
+        usuarioNombre: 'Desarrollador',
+        detalles: 'Sede "${data.nombre}" creada',
+      );
     }
 
     if (mounted) Navigator.pop(context, true);
@@ -127,7 +122,7 @@ class _SedeFormScreenState extends State<SedeFormScreen> {
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: _iconosDisponibles.map((valor) {
+                children: sedeIconKeys.map((valor) {
                   final seleccionado = _iconoSeleccionado == valor;
                   final primary = Theme.of(context).colorScheme.primary;
                 final primaryLight = primary.withAlpha(13);
@@ -145,7 +140,7 @@ class _SedeFormScreenState extends State<SedeFormScreen> {
                         ),
                       ),
                       child: Icon(
-                        _iconoDeSede(valor),
+                        iconoDeSede(valor),
                         color: seleccionado ? primary : Colors.grey.shade600,
                         size: 28,
                       ),

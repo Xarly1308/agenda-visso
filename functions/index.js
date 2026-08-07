@@ -1,32 +1,38 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
+const { getMessaging } = require('firebase-admin/messaging');
+const { defineString } = require('firebase-functions/params');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
+const logger = require('firebase-functions/logger');
 
-admin.initializeApp();
+initializeApp();
+const db = getFirestore();
+const auth = getAuth();
+const messaging = getMessaging();
 
-
-
-// Configuración Resend
-// firebase functions:config:set resend.apikey="re_xxx" resend.from="onboarding@resend.dev"
-function getResendConfig() {
-  const config = functions.config().resend || {};
-  return {
-    apiKey: config.apikey || '',
-    from: config.from || '',
-  };
-}
+const resendApiKey = defineString('RESEND_API_KEY');
+const resendFrom = defineString('RESEND_FROM');
 
 async function obtenerDatosCita(citaId) {
-  const citaSnap = await admin.firestore().collection('citas').doc(citaId).get();
+  const citaSnap = await db.collection('citas').doc(citaId).get();
   if (!citaSnap.exists) throw new Error('Cita no encontrada');
   const cita = citaSnap.data();
 
-  const sedeSnap = await admin.firestore().collection('sedes').doc(cita.sedeId).get();
+  const sedeSnap = await db.collection('sedes').doc(cita.sedeId).get();
   const sede = sedeSnap.data() || { nombre: 'Sede', direccion: '' };
 
-  const pacienteSnap = await admin.firestore().collection('pacientes').doc(cita.pacienteId).get();
+  const pacienteSnap = await db.collection('pacientes').doc(cita.pacienteId).get();
   const paciente = pacienteSnap.data() || { nombres: 'Paciente', email: '' };
 
-  return { cita, sede, paciente };
+  let franquicia = null;
+  if (cita.franquiciaId) {
+    const franquiciaSnap = await db.collection('franquicias').doc(cita.franquiciaId).get();
+    franquicia = franquiciaSnap.data() || null;
+  }
+
+  return { cita, sede, paciente, franquicia };
 }
 
 function formatearFecha(fechaStr) {
@@ -56,8 +62,16 @@ function formatoHora12h(hora24) {
   return `${h12}:${m.toString().padStart(2, '0')} ${periodo}`;
 }
 
-function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, mensajePersonalizado, esCancelacion, esReagendamiento }) {
-  const contacto = SEDES_CONTACTO[sede.id] || {};
+function obtenerContacto(sede, franquicia) {
+  const legacy = SEDES_CONTACTO[sede.id] || {};
+  return {
+    direccion: sede.direccion || (franquicia && franquicia.direccion) || legacy.direccion || '',
+    telefono: sede.telefono || (franquicia && franquicia.telefonoContacto) || legacy.telefono || '',
+    whatsapp: (franquicia && franquicia.telefonoContacto) || legacy.telefono || '315 342 5703',
+  };
+}
+
+function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, contacto, mensajePersonalizado, esCancelacion, esReagendamiento }) {
   const horaFormateada = formatoHora12h(hora);
   return `
   <!DOCTYPE html>
@@ -89,7 +103,7 @@ function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, m
           <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;" />
           <p style="font-size:14px;color:#666;margin:0;">
             <strong>¿Necesitas cancelar o reagendar?</strong><br/>
-            Llama o escríbenos al Whatsapp <strong>315 342 5703</strong>
+            Llama o escríbenos al Whatsapp <strong>${contacto.whatsapp}</strong>
           </p>
           ` : ''}
           <p style="font-size:12px;color:#999;margin-top:24px;text-align:center;">
@@ -103,131 +117,90 @@ function plantillaEmail({ titulo, nombrePaciente, fechaFormateada, hora, sede, m
 }
 
 async function enviarCorreo({ to, subject, html, citaId }) {
-  if (!to) {
-    functions.logger.warn(`Sin destinatario para cita ${citaId}`);
-    return null;
-  }
-
-  const { apiKey, from } = getResendConfig();
-  if (!apiKey || !from) {
-    functions.logger.warn('Resend no configurado: faltan apiKey o from');
-    return null;
-  }
-
-  const respuesta = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ from, to: [to], subject, html }),
-  });
-
-  if (!respuesta.ok) {
-    const texto = await respuesta.text();
-    throw new Error(`Resend error ${respuesta.status}: ${texto}`);
-  }
-
-  return respuesta.json();
+  logger.info(`Email deshabilitado: skip envío a ${to} para cita ${citaId}`);
+  return null;
 }
 
 // ─── CONFIRMACIÓN ────────────────────────────────────────
-exports.enviarConfirmacion = functions.firestore
-  .document('citas/{citaId}')
-  .onCreate(async (snap, context) => {
-    try {
-      const { cita, sede, paciente } = await Promise.race([
-        obtenerDatosCita(context.params.citaId),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout obteniendo datos')), 25000)),
-      ]);
-      const fechaFormateada = formatearFecha(cita.fecha);
-      const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
+exports.enviarConfirmacion = onDocumentCreated('citas/{citaId}', async (event) => {
+  const snap = event.data;
+  const citaId = event.params.citaId;
+  try {
+    const { cita, sede, paciente, franquicia } = await Promise.race([
+      obtenerDatosCita(citaId),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout obteniendo datos')), 25000)),
+    ]);
+    const fechaFormateada = formatearFecha(cita.fecha);
+    const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
+    const contacto = obtenerContacto(sede, franquicia);
 
-      const html = plantillaEmail({
-        titulo: 'Cita Agendada',
-        nombrePaciente,
-        fechaFormateada,
-        hora: cita.hora,
-        sede,
-        mensajePersonalizado: cita.mensajePersonalizado,
-        esCancelacion: false,
-      });
+    const html = plantillaEmail({
+      titulo: 'Cita Agendada',
+      nombrePaciente,
+      fechaFormateada,
+      hora: cita.hora,
+      sede,
+      contacto,
+      mensajePersonalizado: cita.mensajePersonalizado,
+      esCancelacion: false,
+    });
 
-      // Solo intentar email si hay destinatario
-      if (paciente.email) {
-        try {
-          await Promise.race([
-            enviarCorreo({
-              to: paciente.email,
-              subject: `Cita confirmada - ${sede.nombre} - ${formatoHora12h(cita.hora)}`,
-              html,
-              citaId: context.params.citaId,
-            }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout email')), 15000)),
-          ]);
-          functions.logger.log(`Confirmación enviada a ${paciente.email}`);
-        } catch (err) {
-          functions.logger.error('Error enviando confirmación:', err);
-        }
-      } else {
-        functions.logger.warn(`Sin email para cita ${context.params.citaId}`);
-      }
-
-      // Enviar notificación push al profesional
-      try {
-        const nombrePaciente = (paciente.nombres || 'Paciente').split(' ').slice(0, 2).join(' ');
-        await Promise.race([
-          admin.messaging().send({
-            topic: 'profesional_notificaciones',
-            notification: {
-              title: 'Nueva cita agendada',
-              body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}`,
-            },
-            data: {
-              tipo: 'nueva_cita',
-              citaId: context.params.citaId,
-            },
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout push')), 15000)),
-        ]);
-        functions.logger.log('Push enviado al profesional');
-      } catch (err) {
-        functions.logger.error('Error enviando push:', err);
-      }
-
-      // Marcar como notificada
+    if (paciente.email) {
       try {
         await Promise.race([
-          snap.ref.update({ notificada: true }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout update')), 10000)),
+          enviarCorreo({ to: paciente.email, subject: `Cita confirmada - ${sede.nombre} - ${formatoHora12h(cita.hora)}`, html, citaId }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout email')), 15000)),
         ]);
+        logger.log(`Confirmación enviada a ${paciente.email}`);
       } catch (err) {
-        functions.logger.error('Error actualizando notificada:', err);
+        logger.error('Error enviando confirmación:', err);
       }
-    } catch (err) {
-      functions.logger.error('Error en enviarConfirmacion:', err);
+    } else {
+      logger.warn(`Sin email para cita ${citaId}`);
     }
-  });
+
+    try {
+      const nombrePaciente = (paciente.nombres || 'Paciente').split(' ').slice(0, 2).join(' ');
+      const franquiciaId = cita.franquiciaId || '1000';
+      await Promise.race([
+        messaging.send({
+          topic: `profesional_notificaciones_${franquiciaId}`,
+          notification: { title: 'Nueva cita agendada', body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}` },
+          data: { tipo: 'nueva_cita', citaId, franquiciaId },
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout push')), 15000)),
+      ]);
+      logger.log(`Push enviado al profesional (franquicia ${franquiciaId})`);
+    } catch (err) {
+      logger.error('Error enviando push:', err);
+    }
+
+    try {
+      await Promise.race([
+        snap.ref.update({ notificada: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout update')), 10000)),
+      ]);
+    } catch (err) {
+      logger.error('Error actualizando notificada:', err);
+    }
+  } catch (err) {
+    logger.error('Error en enviarConfirmacion:', err);
+  }
+});
 
 // ─── RECORDATORIO ─────────────────────────────────────────
-// Programar con Cloud Scheduler: todos los días a las 8:00 AM
-// Endpoint: https://us-central1-agendavisso.cloudfunctions.net/enviarRecordatorios
-exports.enviarRecordatorios = functions.https.onRequest(async (req, res) => {
-  // Protección simple: aceptar GET (explorar) y POST (Scheduler)
-  if (req.method === 'POST' || req.method === 'GET') {
-    // OK
-  } else {
+exports.enviarRecordatorios = onRequest(async (req, res) => {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).send('Method not allowed');
   }
 
   const manana = new Date();
   manana.setDate(manana.getDate() + 1);
   const mananaStr = manana.toISOString().split('T')[0];
-  const hoyNombre = manana.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  functions.logger.log(`Enviando recordatorios para mañana ${mananaStr}...`);
+  logger.log(`Enviando recordatorios para mañana ${mananaStr}...`);
 
-  const snapshot = await admin.firestore().collection('citas')
+  const snapshot = await db.collection('citas')
     .where('fecha', '==', mananaStr)
     .where('estado', 'in', ['pendiente', 'confirmada'])
     .get();
@@ -238,16 +211,22 @@ exports.enviarRecordatorios = functions.https.onRequest(async (req, res) => {
     total++;
     const cita = doc.data();
     const [sedeSnap, pacienteSnap] = await Promise.all([
-      admin.firestore().collection('sedes').doc(cita.sedeId).get(),
-      admin.firestore().collection('pacientes').doc(cita.pacienteId).get(),
+      db.collection('sedes').doc(cita.sedeId).get(),
+      db.collection('pacientes').doc(cita.pacienteId).get(),
     ]);
     const sede = sedeSnap.data() || { nombre: 'Sede', direccion: '' };
     const paciente = pacienteSnap.data() || { nombres: 'Paciente', email: '' };
+    let franquicia = null;
+    if (cita.franquiciaId) {
+      const franquiciaSnap = await db.collection('franquicias').doc(cita.franquiciaId).get();
+      franquicia = franquiciaSnap.data() || null;
+    }
 
     if (!paciente.email) continue;
 
     const fechaFormateada = formatearFecha(cita.fecha);
     const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
+    const contacto = obtenerContacto(sede, franquicia);
 
     const html = plantillaEmail({
       titulo: 'Recordatorio de Cita',
@@ -255,73 +234,392 @@ exports.enviarRecordatorios = functions.https.onRequest(async (req, res) => {
       fechaFormateada,
       hora: cita.hora,
       sede,
+      contacto,
       mensajePersonalizado: 'Por favor llega 10 minutos antes de tu hora agendada.',
       esCancelacion: false,
     });
 
     try {
-      await enviarCorreo({
-        to: paciente.email,
-        subject: `Recordatorio: tienes cita mañana ${formatoHora12h(cita.hora)}`,
-        html,
-        citaId: doc.id,
-      });
+      await enviarCorreo({ to: paciente.email, subject: `Recordatorio: tienes cita mañana ${formatoHora12h(cita.hora)}`, html, citaId: doc.id });
       enviados++;
     } catch (err) {
-      functions.logger.error('Error enviando recordatorio a ${paciente.email}:', err);
+      logger.error('Error enviando recordatorio a ${paciente.email}:', err);
     }
   }
 
-  functions.logger.log(`Recordatorios: ${enviados} enviados de ${total} citas para mañana`);
+  logger.log(`Recordatorios: ${enviados} enviados de ${total} citas para mañana`);
   res.status(200).send(`Recordatorios enviados: ${enviados} de ${total}`);
 });
 
 // ─── RE-AGENDAMIENTO / CANCELACIÓN ────────────────────────
-exports.enviarReagendamiento = functions.firestore
-  .document('citas/{citaId}')
-  .onUpdate(async (change, context) => {
-    const antes = change.before.data();
-    const despues = change.after.data();
+exports.enviarReagendamiento = onDocumentUpdated('citas/{citaId}', async (event) => {
+  const change = event.data;
+  const citaId = event.params.citaId;
+  const antes = change.before.data();
+  const despues = change.after.data();
 
-    // Cancelación
-    if (antes.estado !== 'cancelada' && despues.estado === 'cancelada') {
-      const { cita, sede, paciente } = await obtenerDatosCita(context.params.citaId);
-      if (!paciente.email) return;
-      const fechaFormateada = formatearFecha(cita.fecha);
-      const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
-      const html = plantillaEmail({
-        titulo: 'Cita Cancelada', nombrePaciente, fechaFormateada, hora: cita.hora, sede,
-        esCancelacion: true,
+  // Cancelación
+  if (antes.estado !== 'cancelada' && despues.estado === 'cancelada') {
+    const { cita, sede, paciente, franquicia } = await obtenerDatosCita(citaId);
+
+    try {
+      const nombrePaciente = (paciente.nombres || 'Paciente').split(' ').slice(0, 2).join(' ');
+      const franquiciaId = cita.franquiciaId || '1000';
+      await messaging.send({
+        topic: `profesional_notificaciones_${franquiciaId}`,
+        notification: { title: 'Cita cancelada', body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}` },
+        data: { tipo: 'cita_cancelada', citaId, franquiciaId },
       });
-      try {
-        await enviarCorreo({
-          to: paciente.email, subject: `Cita cancelada - Reagenda cuando quieras`, html, citaId: context.params.citaId,
-        });
-        functions.logger.log(`Cancelación enviada a ${paciente.email}`);
-      } catch (err) {
-        functions.logger.error('Error enviando cancelación:', err);
-      }
-      return;
+      logger.log(`Push cancelación enviado (franquicia ${franquiciaId})`);
+    } catch (err) {
+      logger.error('Error push cancelación:', err);
     }
 
-    // Reagendamiento (cambio de fecha u hora en cita no cancelada)
-    const fechaCambio = antes.fecha !== despues.fecha || antes.hora !== despues.hora;
-    if (fechaCambio && despues.estado !== 'cancelada') {
-      const { cita, sede, paciente } = await obtenerDatosCita(context.params.citaId);
-      if (!paciente.email) return;
-      const fechaFormateada = formatearFecha(cita.fecha);
-      const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
-      const html = plantillaEmail({
-        titulo: 'Cita Reagendada', nombrePaciente, fechaFormateada, hora: cita.hora, sede,
-        esReagendamiento: true,
-      });
-      try {
-        await enviarCorreo({
-          to: paciente.email, subject: `Tu cita ha sido reagendada - ${sede.nombre} - ${formatoHora12h(cita.hora)}`, html, citaId: context.params.citaId,
-        });
-        functions.logger.log(`Reagendamiento enviado a ${paciente.email}`);
-      } catch (err) {
-        functions.logger.error('Error enviando reagendamiento:', err);
-      }
+    if (!paciente.email) return;
+    const fechaFormateada = formatearFecha(cita.fecha);
+    const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
+    const contacto = obtenerContacto(sede, franquicia);
+    const html = plantillaEmail({
+      titulo: 'Cita Cancelada', nombrePaciente, fechaFormateada, hora: cita.hora, sede, contacto,
+      esCancelacion: true,
+    });
+    try {
+      await enviarCorreo({ to: paciente.email, subject: `Cita cancelada - Reagenda cuando quieras`, html, citaId });
+      logger.log(`Cancelación enviada a ${paciente.email}`);
+    } catch (err) {
+      logger.error('Error enviando cancelación:', err);
     }
+    return;
+  }
+
+  // Reagendamiento (cambio de fecha u hora en cita no cancelada)
+  const fechaCambio = antes.fecha !== despues.fecha || antes.hora !== despues.hora;
+  if (fechaCambio && despues.estado !== 'cancelada') {
+    const { cita, sede, paciente, franquicia } = await obtenerDatosCita(citaId);
+
+    try {
+      const nombrePaciente = (paciente.nombres || 'Paciente').split(' ').slice(0, 2).join(' ');
+      const franquiciaId = cita.franquiciaId || '1000';
+      await messaging.send({
+        topic: `profesional_notificaciones_${franquiciaId}`,
+        notification: { title: 'Cita reagendada', body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}` },
+        data: { tipo: 'cita_reagendada', citaId, franquiciaId },
+      });
+      logger.log(`Push reagendamiento enviado (franquicia ${franquiciaId})`);
+    } catch (err) {
+      logger.error('Error push reagendamiento:', err);
+    }
+
+    if (!paciente.email) return;
+    const fechaFormateada = formatearFecha(cita.fecha);
+    const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
+    const contacto = obtenerContacto(sede, franquicia);
+    const html = plantillaEmail({
+      titulo: 'Cita Reagendada', nombrePaciente, fechaFormateada, hora: cita.hora, sede, contacto,
+      esReagendamiento: true,
+    });
+    try {
+      await enviarCorreo({ to: paciente.email, subject: `Tu cita ha sido reagendada - ${sede.nombre} - ${formatoHora12h(cita.hora)}`, html, citaId });
+      logger.log(`Reagendamiento enviado a ${paciente.email}`);
+    } catch (err) {
+      logger.error('Error enviando reagendamiento:', err);
+    }
+  }
+});
+
+// ─── ADMIN (onCall protegidas por desarrolladores) ──────────
+async function requerirDesarrollador(auth) {
+  if (!auth) {
+    throw new HttpsError('unauthenticated', 'Debes iniciar sesión');
+  }
+  const snap = await db.collection('desarrolladores').doc(auth.uid).get();
+  if (!snap.exists || snap.data().activo === false) {
+    throw new HttpsError('permission-denied', 'Solo desarrolladores pueden realizar esta acción');
+  }
+  return snap.data();
+}
+
+exports.crearFranquicia = onCall(async (request) => {
+  await requerirDesarrollador(request.auth);
+
+  const data = request.data || {};
+  const codigo = data.codigo ? String(data.codigo).trim() : '';
+  const nombre = data.nombre ? String(data.nombre).trim() : '';
+  if (!codigo || !nombre) {
+    throw new HttpsError('invalid-argument', 'codigo y nombre son obligatorios');
+  }
+
+  const ref = db.collection('franquicias').doc(codigo);
+  const actual = await ref.get();
+  if (actual.exists) {
+    throw new HttpsError('already-exists', `La franquicia ${codigo} ya existe`);
+  }
+
+  const direccion = data.direccion || '';
+  const telefono = data.telefonoContacto || '';
+
+  // 1. Crear franquicia
+  await ref.set({
+    codigo,
+    nombre,
+    activo: true,
+    direccion,
+    telefonoContacto: telefono,
+    usuarios: [],
+    creadoEn: FieldValue.serverTimestamp(),
   });
+
+  // 2. Crear sede por defecto con los mismos datos de la franquicia
+  const sedeId = db.collection('sedes').doc().id;
+  const iconos = ['store', 'medical_services', 'visibility', 'local_hospital', 'home', 'business', 'location_city', 'apartment'];
+  const iconoAleatorio = iconos[Math.floor(Math.random() * iconos.length)];
+  await db.collection('sedes').doc(sedeId).set({
+    id: sedeId,
+    nombre,
+    direccion,
+    telefono: telefono || null,
+    activa: true,
+    icono: iconoAleatorio,
+    franquiciaId: codigo,
+    creadoEn: FieldValue.serverTimestamp(),
+  });
+
+  // 3. Crear tipos de consulta por defecto
+  const defaultTipos = [
+    'Control', 'Lentes oftálmicos', 'Lentes de contacto',
+    'Pediátrico', 'Patología', 'Ortóptica', 'Certificado',
+  ];
+  for (const nombreTipo of defaultTipos) {
+    const tipoId = db.collection('tipos_consulta').doc().id;
+    await db.collection('tipos_consulta').doc(tipoId).set({
+      id: tipoId,
+      nombre: nombreTipo,
+      activo: true,
+      franquiciaId: codigo,
+      creadoEn: FieldValue.serverTimestamp(),
+    });
+  }
+
+  // 4. Crear horarios por defecto para la sede (L-V 8-12, 14-18 / Sáb 8-12)
+  const horariosDefault = [];
+  for (let dia = 1; dia <= 5; dia++) {
+    horariosDefault.push(
+      { diaSemana: dia, horaInicio: '08:00', horaFin: '12:00' },
+      { diaSemana: dia, horaInicio: '14:00', horaFin: '18:00' },
+    );
+  }
+  horariosDefault.push({ diaSemana: 6, horaInicio: '08:00', horaFin: '12:00' });
+
+  for (const h of horariosDefault) {
+    const horarioId = db.collection('horarios').doc().id;
+    await db.collection('horarios').doc(horarioId).set({
+      id: horarioId,
+      profesionalId: '',
+      sedeId,
+      diaSemana: h.diaSemana,
+      horaInicio: h.horaInicio,
+      horaFin: h.horaFin,
+      franquiciaId: codigo,
+      creadoEn: FieldValue.serverTimestamp(),
+    });
+  }
+
+  return { ok: true, franquiciaId: codigo, sedeId };
+});
+
+exports.crearProfesional = onCall(async (request) => {
+  await requerirDesarrollador(request.auth);
+
+  const data = request.data || {};
+  const email = data.email ? String(data.email).trim() : '';
+  const password = data.password ? String(data.password).trim() : '';
+  const nombre = data.nombre ? String(data.nombre).trim() : '';
+  const documento = data.documento ? String(data.documento).trim() : '';
+  const franquiciaId = data.franquiciaId ? String(data.franquiciaId).trim() : '';
+  if (!email || !password || !nombre || !franquiciaId) {
+    throw new HttpsError('invalid-argument', 'email, password, nombre y franquiciaId son obligatorios');
+  }
+  if (password.length < 6) {
+    throw new HttpsError('invalid-argument', 'La contraseña debe tener al menos 6 caracteres');
+  }
+
+  const franquiciaRef = db.collection('franquicias').doc(franquiciaId);
+  const franquiciaSnap = await franquiciaRef.get();
+  if (!franquiciaSnap.exists) {
+    throw new HttpsError('not-found', `La franquicia ${franquiciaId} no existe`);
+  }
+
+  try {
+    await auth.getUserByEmail(email);
+    throw new HttpsError('already-exists', `Ya existe una cuenta con el email ${email}`);
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+  }
+
+  const userRecord = await auth.createUser({ email, password, displayName: nombre });
+
+  await db.collection('profesionales').doc(userRecord.uid).set({
+    id: userRecord.uid, nombre, email, documento, activo: true, franquiciaId,
+    creadoEn: FieldValue.serverTimestamp(),
+  });
+
+  await franquiciaRef.update({ usuarios: FieldValue.arrayUnion(userRecord.uid) });
+
+  return { ok: true, uid: userRecord.uid, email, franquiciaId };
+});
+
+exports.asignarProfesionalAFranquicia = onCall(async (request) => {
+  await requerirDesarrollador(request.auth);
+
+  const data = request.data || {};
+  const uid = data.uid ? String(data.uid).trim() : '';
+  const franquiciaId = data.franquiciaId ? String(data.franquiciaId).trim() : '';
+  if (!uid || !franquiciaId) {
+    throw new HttpsError('invalid-argument', 'uid y franquiciaId son obligatorios');
+  }
+
+  const franquiciaRef = db.collection('franquicias').doc(franquiciaId);
+  const franquiciaSnap = await franquiciaRef.get();
+  if (!franquiciaSnap.exists) {
+    throw new HttpsError('not-found', `La franquicia ${franquiciaId} no existe`);
+  }
+
+  const profesionalRef = db.collection('profesionales').doc(uid);
+  const profesionalSnap = await profesionalRef.get();
+  if (!profesionalSnap.exists) {
+    throw new HttpsError('not-found', 'El profesional no existe en la colección profesionales');
+  }
+
+  await profesionalRef.update({ franquiciaId });
+  await franquiciaRef.update({ usuarios: FieldValue.arrayUnion(uid) });
+
+  return { ok: true, uid, franquiciaId };
+});
+
+exports.editarProfesional = onCall(async (request) => {
+  await requerirDesarrollador(request.auth);
+
+  const data = request.data || {};
+  const uid = data.uid ? String(data.uid).trim() : '';
+  if (!uid) throw new HttpsError('invalid-argument', 'uid es obligatorio');
+
+  const profesionalRef = db.collection('profesionales').doc(uid);
+  const profesionalSnap = await profesionalRef.get();
+  if (!profesionalSnap.exists) {
+    throw new HttpsError('not-found', 'El profesional no existe');
+  }
+
+  const updates = {};
+  const authUpdates = {};
+
+  if (data.nombre) {
+    updates.nombre = String(data.nombre).trim();
+    authUpdates.displayName = updates.nombre;
+  }
+  if (data.email) {
+    const newEmail = String(data.email).trim();
+    updates.email = newEmail;
+    authUpdates.email = newEmail;
+    try {
+      const existing = await auth.getUserByEmail(newEmail);
+      if (existing && existing.uid !== uid) {
+        throw new HttpsError('already-exists', `El email ${newEmail} ya está en uso`);
+      }
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+    }
+  }
+  if (data.password) {
+    authUpdates.password = String(data.password).trim();
+    if (authUpdates.password.length < 6) {
+      throw new HttpsError('invalid-argument', 'La contraseña debe tener al menos 6 caracteres');
+    }
+  }
+  if (data.documento !== undefined) updates.documento = String(data.documento).trim();
+  if (data.franquiciaId) {
+    const newFid = String(data.franquiciaId).trim();
+    const oldFid = profesionalSnap.data().franquiciaId;
+    updates.franquiciaId = newFid;
+    if (oldFid && oldFid !== newFid) {
+      const oldRef = db.collection('franquicias').doc(oldFid);
+      const newRef = db.collection('franquicias').doc(newFid);
+      await oldRef.update({ usuarios: FieldValue.arrayRemove(uid) }).catch(() => {});
+      await newRef.update({ usuarios: FieldValue.arrayUnion(uid) }).catch(() => {});
+    }
+  }
+
+  if (Object.keys(authUpdates).length > 0) {
+    await auth.updateUser(uid, authUpdates);
+  }
+  if (Object.keys(updates).length > 0) {
+    await profesionalRef.update(updates);
+  }
+
+  return { ok: true, uid };
+});
+
+exports.eliminarProfesional = onCall(async (request) => {
+  try {
+    await requerirDesarrollador(request.auth);
+
+    const data = request.data || {};
+    const uid = data.uid ? String(data.uid).trim() : '';
+    if (!uid) throw new HttpsError('invalid-argument', 'uid es obligatorio');
+
+    const profesionalSnap = await db.collection('profesionales').doc(uid).get();
+    if (!profesionalSnap.exists) {
+      throw new HttpsError('not-found', 'El profesional no existe');
+    }
+
+    const fid = profesionalSnap.data().franquiciaId;
+    if (fid) {
+      await db.collection('franquicias').doc(fid).update({
+        usuarios: FieldValue.arrayRemove(uid),
+      }).catch(() => {});
+    }
+
+    await db.collection('profesionales').doc(uid).delete();
+
+    try {
+      await auth.deleteUser(uid);
+    } catch (e) {
+      logger.warn('Auth user not found or already deleted', { uid, error: e.message });
+    }
+
+    return { ok: true, uid };
+  } catch (err) {
+    logger.error('Error en eliminarProfesional:', err);
+    if (err instanceof HttpsError) throw err;
+    throw new HttpsError('internal', err.message || 'Error interno al eliminar profesional');
+  }
+});
+
+exports.sembrarTiposConsultaDefault = onCall(async (request) => {
+  await requerirDesarrollador(request.auth);
+
+  const data = request.data || {};
+  const franquiciaId = data.franquiciaId ? String(data.franquiciaId).trim() : '';
+  if (!franquiciaId) throw new HttpsError('invalid-argument', 'franquiciaId es obligatorio');
+
+  const defaultTypes = [
+    'Control', 'Lentes oftálmicos', 'Lentes de contacto',
+    'Pediátrico', 'Patología', 'Ortóptica', 'Certificado',
+  ];
+
+  const snap = await db.collection('tipos_consulta')
+    .where('franquiciaId', '==', franquiciaId).where('activo', '==', true).get();
+  const existentes = new Set(snap.docs.map(d => d.data().nombre));
+
+  let creados = 0;
+  for (const nombre of defaultTypes) {
+    if (existentes.has(nombre)) continue;
+    const id = db.collection('tipos_consulta').doc().id;
+    await db.collection('tipos_consulta').doc(id).set({
+      id, nombre, activo: true, franquiciaId,
+      creadoEn: FieldValue.serverTimestamp(),
+    });
+    creados++;
+  }
+
+  return { ok: true, creados, total: defaultTypes.length };
+});

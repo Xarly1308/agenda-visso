@@ -214,9 +214,11 @@ class _DiaCelda extends StatelessWidget {
     required this.onTap,
   });
 
+  bool get _bloqueado => esFestivo;
+
   Color? get _color {
     if (seleccionado) return Colors.white;
-    if (esFestivo) return Colors.red;
+    if (esFestivo) return Colors.red.shade300;
     if (esExcepcion) return Colors.orange;
     if (esConCita) return const Color(0xFFE65100);
     return null;
@@ -233,53 +235,56 @@ class _DiaCelda extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: _fondo(),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(nombre,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: seleccionado ? FontWeight.w600 : FontWeight.w400,
-                  color: _color ?? Colors.grey.shade600,
-                )),
-            const SizedBox(height: 2),
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: esHoy && !seleccionado
-                  ? BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _color != null
-                          ? _color!.withAlpha(40)
-                          : Theme.of(context).colorScheme.primary.withAlpha(20),
-                    )
-                  : null,
-              child: Text('${dia.day}',
+      onTap: _bloqueado ? null : onTap,
+      child: Opacity(
+        opacity: _bloqueado ? 0.4 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          decoration: BoxDecoration(
+            color: _fondo(),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(nombre,
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: esHoy || seleccionado ? FontWeight.bold : FontWeight.w500,
-                    color: seleccionado
-                        ? Colors.white
-                        : esFestivo
-                            ? Colors.red
-                            : esExcepcion
-                                ? Colors.orange.shade800
-                                : esConCita
-                                    ? const Color(0xFFE65100)
-                                    : esHoy
-                                        ? const Color(0xFF003B74)
-                                        : Colors.black87,
+                    fontSize: 10,
+                    fontWeight: seleccionado ? FontWeight.w600 : FontWeight.w400,
+                    color: _color ?? Colors.grey.shade600,
                   )),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: esHoy && !seleccionado
+                    ? BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _color != null
+                            ? _color!.withAlpha(40)
+                            : Theme.of(context).colorScheme.primary.withAlpha(20),
+                      )
+                    : null,
+                child: Text('${dia.day}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: esHoy || seleccionado ? FontWeight.bold : FontWeight.w500,
+                      color: seleccionado
+                          ? Colors.white
+                          : esFestivo
+                              ? Colors.red
+                              : esExcepcion
+                                  ? Colors.orange.shade800
+                                  : esConCita
+                                      ? const Color(0xFFE65100)
+                                      : esHoy
+                                          ? const Color(0xFF003B74)
+                                          : Colors.black87,
+                    )),
+              ),
+            ],
+          ),
         ),
       ),
     );

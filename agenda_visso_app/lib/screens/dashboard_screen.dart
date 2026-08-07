@@ -19,12 +19,11 @@ import '../services/app_update_service.dart';
 import '../utils/colombian_holidays.dart';
 import '../utils/formato_hora.dart';
 import '../utils/calculador_slots.dart';
-import 'config_screen.dart';
+import '../utils/sede_icons.dart';
 import 'config_screen.dart';
 import '../widgets/calendar_header.dart';
 import 'nueva_cita_screen.dart';
 import 'pacientes_screen.dart';
-import 'config_screen.dart';
 import 'estadisticas_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -47,14 +46,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _inicializar() {
     if (_inicializado) return;
     _inicializado = true;
+    _inicializarAsync();
+  }
 
+  Future<void> _inicializarAsync() async {
     final auth = context.read<AuthProvider>();
     final uid = auth.user?.uid;
     if (uid == null) return;
 
+    await auth.sesionCargada;
+
+    final franquiciaId = auth.franquiciaId;
+    if (franquiciaId != null && franquiciaId.isNotEmpty) {
+      NotificacionService.suscribirAFranquicia(franquiciaId);
+    }
+
     final config = context.read<ConfigProvider>();
     config.inicializar(uid);
-    context.read<AgendaProvider>().inicializar(uid);
+    context.read<AgendaProvider>().inicializar(uid, nombre: auth.nombreUsuario);
     context.read<NotificacionProvider>().inicializar(uid);
 
     config.addListener(_onConfigLoaded);
@@ -101,13 +110,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (kIsWeb) return;
 
     try {
-      final version = await AppUpdateService().getLatestVersion();
+      final service = AppUpdateService();
+      final version = await service.getLatestVersion();
       if (version == null || !mounted) return;
       final latestVersion = version['version'];
       final apkUrl = version['apkUrl'];
       final notas = version['notas'];
       if (latestVersion == null || apkUrl == null) return;
-      if (!AppUpdateService().isUpdateAvailable(latestVersion, kAppVersion)) return;
+      if (!service.isUpdateAvailable(latestVersion, kAppVersion)) return;
 
       final prefs = await SharedPreferences.getInstance();
       final lastNotified = prefs.getString('last_notified_version');
@@ -177,7 +187,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error verificando actualización: $e');
+    }
   }
 
   void _mostrarFestivosProximos() {
@@ -233,6 +245,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 768;
+    final auth = context.watch<AuthProvider>();
+    final viendoOtra = auth.viendoOtraFranquicia;
     return Scaffold(
       appBar: isDesktop
           ? AppBar(
@@ -262,7 +276,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _buildNotificacionesBoton(context),
               ],
             ),
-      body: isDesktop ? _buildDesktopLayout() : _buildBody(),
+      body: Column(
+        children: [
+          if (viendoOtra)
+            Container(
+              width: double.infinity,
+              color: Colors.orange.shade100,
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.eye, size: 16, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Viendo: ${auth.franquiciaNombre ?? auth.franquiciaId}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.orange),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await auth.volverAMiFranquicia();
+                      if (context.mounted) {
+                        final uid = auth.user?.uid;
+                        if (uid != null) {
+                          context.read<ConfigProvider>().inicializar(uid);
+                          context.read<AgendaProvider>().inicializar(uid, nombre: auth.nombreUsuario);
+                          context.read<NotificacionProvider>().inicializar(uid);
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Volviendo a tu franquicia'), behavior: SnackBarBehavior.floating),
+                        );
+                      }
+                    },
+                    child: const Text('Volver', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: isDesktop ? _buildDesktopLayout() : _buildBody(),
+          ),
+        ],
+      ),
       bottomNavigationBar: isDesktop ? null : _buildMobileNav(),
     );
   }
@@ -458,20 +513,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       default:
         return const _AgendaView();
     }
-  }
-}
-
-IconData iconoDeSede(String icono) {
-  switch (icono) {
-    case 'store': return LucideIcons.store;
-    case 'medical_services': return LucideIcons.heartPulse;
-    case 'visibility': return LucideIcons.eye;
-    case 'local_hospital': return LucideIcons.stethoscope;
-    case 'home': return LucideIcons.home;
-    case 'business': return LucideIcons.building2;
-    case 'location_city': return LucideIcons.building2;
-    case 'apartment': return LucideIcons.building;
-    default: return LucideIcons.store;
   }
 }
 

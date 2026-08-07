@@ -1,5 +1,6 @@
 class Paciente {
   final String id;
+  final String franquiciaId;
   final String documento;
   final String nombres;
   final String telefono;
@@ -9,6 +10,7 @@ class Paciente {
 
   Paciente({
     required this.id,
+    this.franquiciaId = '1000',
     required this.documento,
     required this.nombres,
     required this.telefono,
@@ -19,6 +21,7 @@ class Paciente {
 
   Map<String, dynamic> toMap() => {
         'id': id,
+        'franquiciaId': franquiciaId,
         'documento': documento,
         'nombres': nombres,
         'telefono': telefono,
@@ -29,6 +32,7 @@ class Paciente {
 
   factory Paciente.fromMap(Map<String, dynamic> map) => Paciente(
         id: map['id'] as String? ?? '',
+        franquiciaId: map['franquiciaId'] as String? ?? '1000',
         documento: map['documento'] as String? ?? '',
         nombres: map['nombres'] as String? ?? '',
         telefono: map['telefono'] as String? ?? '',
@@ -39,6 +43,7 @@ class Paciente {
 
   Paciente copyWith({
     String? id,
+    String? franquiciaId,
     String? documento,
     String? nombres,
     String? telefono,
@@ -48,6 +53,7 @@ class Paciente {
   }) {
     return Paciente(
       id: id ?? this.id,
+      franquiciaId: franquiciaId ?? this.franquiciaId,
       documento: documento ?? this.documento,
       nombres: nombres ?? this.nombres,
       telefono: telefono ?? this.telefono,

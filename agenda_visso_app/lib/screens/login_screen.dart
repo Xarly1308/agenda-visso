@@ -82,6 +82,55 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _mostrarRecuperarPassword(BuildContext context) async {
+    final emailCtrl = TextEditingController(text: _emailCtrl.text.trim());
+    final auth = context.read<AuthProvider>();
+
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Recuperar contraseña'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, emailCtrl.text.trim()),
+            child: const Text('Enviar'),
+          ),
+        ],
+      ),
+    );
+
+    if (email == null || email.isEmpty || !context.mounted) return;
+
+    final ok = await auth.recuperarPassword(email);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok
+              ? 'Correo de recuperación enviado a $email'
+              : 'Error al enviar correo. Verifica el email.'),
+          backgroundColor: ok ? Colors.green : Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -151,7 +200,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: _obscurePass,
                     validator: (v) => (v?.length ?? 0) >= 6 ? null : 'Mínimo 6 caracteres',
                   ),
-                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => _mostrarRecuperarPassword(context),
+                      child: const Text('¿Olvidaste tu contraseña?', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    ),
+                  ),
                   Row(
                     children: [
                       Checkbox(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,8 +16,49 @@ class FirestoreRestService {
   static const String _baseUrl = 'https://firestore.googleapis.com/v1/projects/'
       '$_project/databases/(default)/documents';
 
+  // Franquicia activa de la sesión. Cuando es no vacía, todas las consultas
+  // filtran por franquiciaId y las escrituras lo incluyen automáticamente.
+  static String? franquiciaActual;
+
   final http.Client _client = http.Client();
   final Uuid _uuid = const Uuid();
+
+  Map<String, dynamic>? _withFranquicia(Map<String, dynamic>? where) {
+    final f = franquiciaActual;
+    if (f == null || f.isEmpty) return where;
+    final franquiciaFilter = {
+      'fieldFilter': {
+        'field': {'fieldPath': 'franquiciaId'},
+        'op': 'EQUAL',
+        'value': {'stringValue': f},
+      },
+    };
+    if (where == null) return franquiciaFilter;
+    if (where.containsKey('fieldFilter')) {
+      return {
+        'compositeFilter': {
+          'op': 'AND',
+          'filters': [franquiciaFilter, where],
+        },
+      };
+    }
+    if (where.containsKey('compositeFilter')) {
+      final filters = (where['compositeFilter'] as Map)['filters'] as List;
+      return {
+        'compositeFilter': {
+          'op': 'AND',
+          'filters': [franquiciaFilter, ...filters],
+        },
+      };
+    }
+    return where;
+  }
+
+  Map<String, dynamic> _withFranquiciaEnDatos(Map<String, dynamic> data) {
+    final f = franquiciaActual;
+    if (f == null || f.isEmpty || data.containsKey('franquiciaId')) return data;
+    return {...data, 'franquiciaId': f};
+  }
 
   Future<Map<String, String>> _headers() async {
     var user = FirebaseAuth.instance.currentUser;
@@ -65,6 +107,7 @@ class FirestoreRestService {
         .post(_url(':runQuery'), headers: await _headers(), body: jsonEncode(query))
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
+      debugPrint('Firestore runQuery error ${response.statusCode}: ${response.body}');
       throw Exception('Query error (${response.statusCode}): ${response.body}');
     }
     final results = jsonDecode(response.body) as List;
@@ -74,7 +117,7 @@ class FirestoreRestService {
   Future<void> _setDocument(String collection, String id, Map<String, dynamic> data) async {
     final response = await _client
         .post(_url('/$collection?documentId=$id'), headers: await _headers(),
-            body: jsonEncode({'fields': _toFields(data)}))
+            body: jsonEncode({'fields': _toFields(_withFranquiciaEnDatos(data))}))
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Error al crear $collection: ${response.statusCode}');
@@ -115,19 +158,48 @@ class FirestoreRestService {
     }
   }
 
+  Future<void> _deleteDocument(String collection, String id) async {
+    final response = await _client
+        .delete(_url('/$collection/$id'), headers: await _headers())
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200 && response.statusCode != 404) {
+      throw Exception('Error al eliminar $collection: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  // ─── FRANQUICIAS CRUD ────────────────────────────────────────
+
+  Future<void> updateFranquicia(String id, Map<String, dynamic> data) async {
+    await _updateDocument('franquicias', id, data);
+  }
+
+  Future<void> deleteFranquicia(String id) async {
+    await _deleteDocument('franquicias', id);
+  }
+
+  // ─── PROFESIONALES CRUD ──────────────────────────────────────
+
+  Future<void> updateProfesional(String uid, Map<String, dynamic> data) async {
+    await _updateDocument('profesionales', uid, data);
+  }
+
+  Future<void> deleteProfesional(String uid) async {
+    await _deleteDocument('profesionales', uid);
+  }
+
   // ─── SEDES ────────────────────────────────────────────────────────
 
   Future<List<Sede>> getSedes() async {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'sedes'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'activa'},
             'op': 'EQUAL',
             'value': {'booleanValue': true},
           },
-        },
+        }),
       },
     });
     return docs
@@ -157,7 +229,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'horarios'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -183,7 +255,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
       },
     });
     return docs
@@ -195,13 +267,13 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'horarios'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'sedeId'},
             'op': 'EQUAL',
             'value': {'stringValue': sedeId},
           },
-        },
+        }),
       },
     });
     return docs
@@ -214,6 +286,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'horarios'}],
+        'where': _withFranquicia(null),
       },
     });
     return docs
@@ -243,13 +316,13 @@ class FirestoreRestService {
     final existing = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'horarios'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'sedeId'},
             'op': 'EQUAL',
             'value': {'stringValue': sedeId},
           },
-        },
+        }),
       },
     });
 
@@ -271,7 +344,7 @@ class FirestoreRestService {
       writes.add({
         'update': {
           'name': _docName('horarios', id),
-          'fields': _toFields(h.toMap()),
+          'fields': _toFields(_withFranquiciaEnDatos(h.toMap())),
         },
       });
     }
@@ -302,13 +375,13 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'pacientes'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'documento'},
             'op': 'EQUAL',
             'value': {'stringValue': documento},
           },
-        },
+        }),
         'limit': 1,
       },
     });
@@ -338,6 +411,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'pacientes'}],
+        'where': _withFranquicia(null),
         'orderBy': [
           {
             'field': {'fieldPath': 'creadoEn'},
@@ -368,13 +442,13 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'citas'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'fecha'},
             'op': 'EQUAL',
             'value': {'stringValue': fechaStr},
           },
-        },
+        }),
         'orderBy': [
           {
             'field': {'fieldPath': 'hora'},
@@ -393,7 +467,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'citas'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -413,7 +487,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
         'orderBy': [
           {
             'field': {'fieldPath': 'hora'},
@@ -433,7 +507,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'citas'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -453,7 +527,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
         'orderBy': [
           {
             'field': {'fieldPath': 'hora'},
@@ -502,7 +576,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'citas'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -529,7 +603,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
       },
     });
 
@@ -546,13 +620,13 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'excepciones'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'profesionalId'},
             'op': 'EQUAL',
             'value': {'stringValue': profesionalId},
           },
-        },
+        }),
       },
     });
     return docs.map((r) {
@@ -576,7 +650,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'excepciones'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -603,7 +677,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
       },
     });
     return docs.map((r) {
@@ -638,13 +712,13 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'profesionales'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'activo'},
             'op': 'EQUAL',
             'value': {'booleanValue': true},
           },
-        },
+        }),
       },
     });
     return docs
@@ -660,19 +734,65 @@ class FirestoreRestService {
     await _setDocument('profesionales', uid, data);
   }
 
+  // ─── FRANQUICIAS Y DESARROLLADORES ───────────────────────────────
+
+  Future<Map<String, dynamic>?> getFranquicia(String id) async {
+    return await _getDocument('franquicias', id);
+  }
+
+  Future<List<Map<String, dynamic>>> getTodasFranquicias() async {
+    final docs = await _runQuery({
+      'structuredQuery': {
+        'from': [{'collectionId': 'franquicias'}],
+      },
+    });
+    return docs
+        .map((r) {
+          final fields = _fieldsToMap(r['document']['fields']);
+          // Ensure 'codigo' always has a value (use doc ID if field is missing)
+          final docId = r['document']['name'].split('/').last;
+          fields.putIfAbsent('codigo', () => docId);
+          return fields;
+        })
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getTodosProfesionales() async {
+    final docs = await _runQuery({
+      'structuredQuery': {
+        'from': [{'collectionId': 'profesionales'}],
+        'where': {
+          'fieldFilter': {
+            'field': {'fieldPath': 'activo'},
+            'op': 'EQUAL',
+            'value': {'booleanValue': true},
+          },
+        },
+      },
+    });
+    return docs
+        .map((r) => _fieldsToMap(r['document']['fields']))
+        .toList();
+  }
+
+  Future<bool> esDesarrollador(String uid) async {
+    final doc = await _getDocument('desarrolladores', uid);
+    return doc != null && (doc['activo'] as bool? ?? true);
+  }
+
   // ─── NOTIFICACIONES ───────────────────────────────────────────────
 
   Future<List<Notificacion>> getNotificaciones(String profesionalId) async {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'notificaciones'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'profesionalId'},
             'op': 'EQUAL',
             'value': {'stringValue': profesionalId},
           },
-        },
+        }),
         'orderBy': [
           {
             'field': {'fieldPath': 'fechaCreacion'},
@@ -691,7 +811,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'notificaciones'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -711,7 +831,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
       },
     });
     return docs.length;
@@ -726,7 +846,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'notificaciones'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -746,7 +866,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
       },
     });
 
@@ -775,7 +895,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'citas'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -795,7 +915,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
       },
     });
     return docs
@@ -809,13 +929,13 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'tipos_consulta'}],
-        'where': {
+        'where': _withFranquicia({
           'fieldFilter': {
             'field': {'fieldPath': 'activo'},
             'op': 'EQUAL',
             'value': {'booleanValue': true},
           },
-        },
+        }),
       },
     });
     return docs
@@ -835,11 +955,20 @@ class FirestoreRestService {
   // ─── BORRADO MASIVO ─────────────────────────────────────────────
 
   Future<void> _deleteAllInCollection(String collection) async {
-    final docs = await _runQuery({
-      'structuredQuery': {
-        'from': [{'collectionId': collection}],
-      },
-    });
+    final query = <String, dynamic>{
+      'from': [{'collectionId': collection}],
+    };
+    final f = franquiciaActual;
+    if (f != null && f.isNotEmpty) {
+      query['where'] = {
+        'fieldFilter': {
+          'field': {'fieldPath': 'franquiciaId'},
+          'op': 'EQUAL',
+          'value': {'stringValue': f},
+        },
+      };
+    }
+    final docs = await _runQuery({'structuredQuery': query});
     if (docs.isEmpty) return;
     final writes = docs
         .map((doc) => {'delete': doc['document']['name'] as String})
@@ -878,7 +1007,7 @@ class FirestoreRestService {
     final docs = await _runQuery({
       'structuredQuery': {
         'from': [{'collectionId': 'citas'}],
-        'where': {
+        'where': _withFranquicia({
           'compositeFilter': {
             'op': 'AND',
             'filters': [
@@ -898,7 +1027,7 @@ class FirestoreRestService {
               },
             ],
           },
-        },
+        }),
         'orderBy': [
           {
             'field': {'fieldPath': 'fecha'},
@@ -909,6 +1038,62 @@ class FirestoreRestService {
     });
     return docs
         .map((r) => Cita.fromMap(_fieldsToMap(r['document']['fields'])))
+        .toList();
+  }
+
+  // ─── AUDIT LOG ─────────────────────────────────────────────────
+
+  Future<void> registrarAuditLog({
+    required String accion,
+    required String coleccion,
+    String? documentoId,
+    required String usuarioId,
+    required String usuarioNombre,
+    String? franquiciaId,
+    String? detalles,
+  }) async {
+    final id = _uuid.v4();
+    await _setDocument('audit_log', id, {
+      'accion': accion,
+      'coleccion': coleccion,
+      'documentoId': documentoId,
+      'usuarioId': usuarioId,
+      'usuarioNombre': usuarioNombre,
+      'franquiciaId': franquiciaId ?? franquiciaActual,
+      'timestamp': DateTime.now().toIso8601String(),
+      'detalles': detalles,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getAuditLogs({String? franquiciaId, int limit = 100}) async {
+    final where = <String, dynamic>{};
+    if (franquiciaId != null && franquiciaId.isNotEmpty) {
+      where['fieldFilter'] = {
+        'field': {'fieldPath': 'franquiciaId'},
+        'op': 'EQUAL',
+        'value': {'stringValue': franquiciaId},
+      };
+    }
+    final query = <String, dynamic>{
+      'from': [{'collectionId': 'audit_log'}],
+      'orderBy': [
+        {
+          'field': {'fieldPath': 'timestamp'},
+          'direction': 'DESCENDING',
+        },
+      ],
+      'limit': limit,
+    };
+    if (where.isNotEmpty) {
+      query['where'] = where;
+    }
+    final docs = await _runQuery({'structuredQuery': query});
+    return docs
+        .map((r) {
+          final fields = _fieldsToMap(r['document']['fields']);
+          fields['id'] = r['document']['name'].split('/').last;
+          return fields;
+        })
         .toList();
   }
 }

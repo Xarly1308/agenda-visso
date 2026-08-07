@@ -10,6 +10,8 @@ import 'providers/config_provider.dart';
 import 'providers/notificacion_provider.dart';
 import 'providers/pacientes_provider.dart';
 import 'services/notificacion_service.dart';
+import 'services/app_update_service.dart';
+import 'utils/audit_logger.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'widgets/splash_screen.dart';
@@ -18,6 +20,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   NotificacionService.init().catchError((e) => debugPrint('NotificacionService.init error: $e'));
+  AuditLogger().cargar().catchError((e) => debugPrint('AuditLogger.cargar error: $e'));
   runApp(const AgendaVissoApp());
 }
 

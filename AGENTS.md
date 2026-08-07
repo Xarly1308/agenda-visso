@@ -27,7 +27,7 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - Colombian locale: Spanish, AM/PM, numeric document, phone 10 digits, Colombian holidays
 - Firestore REST v1 with Bearer token auth (API key alone insufficient for security rules)
 - Polling (15s Timer) replaces WebChannel for citas in professional app
-- Push via FCM topics (`profesional_notificaciones`) — single topic for single-professional
+- Push via FCM topics (`profesional_notificaciones_${franquiciaId}`) — topic por franquicia
 - `NotificacionService.init()` fire-and-forget in `main()` (avoid hang on platform channel calls)
 - `addNotificacion` auto-generates UUID when `id` is empty
 - NotificacionProvider auto-refreshes every 15s
@@ -43,6 +43,15 @@ Complete both apps (professional + patient) for single-professional optometry cl
   - Cancelación (`estado` cambia a `'cancelada'`) → email "Cita Cancelada"
   - Reagendamiento (`fecha` u `hora` cambian en cita no cancelada) → email "Cita Reagendada"
 - **`enviarRecordatorios`** → endpoint HTTP para Cloud Scheduler (no implementado aún). Consulta citas de mañana y envía recordatorio.
+
+## Security Rules (Fase 4, Aug 2026)
+- Helpers: `esProfesional()` = existe doc en `profesionales/{uid}`; `esDesarrollador()` = doc en `desarrolladores/{uid}` con `activo == true`; `franquiciaValida(id)` = existe doc en `franquicias/{id}`; `miFranquicia()`, `recursoDeMiFranquicia()`, `datoDeMiFranquicia()`, `updateDeMiFranquicia()`.
+- **Gotcha CRÍTICO**: `get()` sobre un documento **inexistente** falla TODA la evaluación (deny) en vez de devolver null. SIEMPRE usar `exists()` para comprobar existencia; `get()` solo tras guardar con `exists()` (o tras `esProfesional()` en short-circuit).
+- **Gotcha delete**: en `DELETE`, `request.resource` es null → NO usar `updateDeMiFranquicia()` en delete (usa `request.resource`). Separar `allow update:` (comprueba franquicia entrante) de `allow delete:` (solo `recursoDeMiFranquicia()`).
+- **Gotcha list**: `resource` no existe en operaciones `list` (queries) — solo en `get`/`update`/`delete`. Separar `allow read` en `allow get` (puede usar `resource.data`) + `allow list` (sin `resource`). El aislamiento de datos en queries se maneja vía `_withFranquicia()` en la app.
+- Modelo de acceso: `sedes`/`horarios`/`excepciones`/`tipos_consulta`: read público, write profesional de su franquicia. `profesionales`: read público, write profesional (propio doc o de su franquicia). `citas`/`pacientes`: get para autenticado no-profesional o profesional de franquicia, list para autenticado; create anónimo si `franquiciaValida`; update/delete solo profesional de franquicia. `notificaciones`: get/list para profesional de franquicia. `app_version`: read público, write autenticado. `franquicias`: read público, write desarrollador. `desarrolladores`: read desarrollador o propio doc, write desarrollador.
+- Admin vía onCall protegidas por `requerirDesarrollador()`: `crearFranquicia`, `crearProfesional` (crea Auth + doc + vincula a franquicia), `asignarProfesionalAFranquicia` (rechazo verificado: 403 "Solo desarrolladores pueden realizar esta acción").
+- Contacto para emails: `obtenerContacto(sede, franquicia)` → `sede.telefono` || `franquicia.telefonoContacto` || legacy `SEDES_CONTACTO`. `franquicias/1000` tiene `direccion` + `telefonoContacto`.
 
 ## Known Issues
 - **Push notifications not delivered on device** — Cloud Function sends push (logged "Push enviado al profesional"), but POCO C85 (MIUI) doesn't show notification. Likely MIUI battery optimization / notification settings. User hasn't confirmed after v1.2.7.

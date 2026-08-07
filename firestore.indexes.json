@@ -74,6 +74,87 @@
         { "fieldPath": "profesionalId", "order": "ASCENDING" },
         { "fieldPath": "leida", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "citas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" },
+        { "fieldPath": "hora", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "citas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" },
+        { "fieldPath": "sedeId", "order": "ASCENDING" },
+        { "fieldPath": "hora", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "citas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" },
+        { "fieldPath": "profesionalId", "order": "ASCENDING" },
+        { "fieldPath": "hora", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "citas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "profesionalId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "citas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "horarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "profesionalId", "order": "ASCENDING" },
+        { "fieldPath": "diaSemana", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pacientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "excepciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "profesionalId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notificaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "franquiciaId", "order": "ASCENDING" },
+        { "fieldPath": "profesionalId", "order": "ASCENDING" },
+        { "fieldPath": "fechaCreacion", "order": "DESCENDING" }
+      ]
     }
   ]
 }

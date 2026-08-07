@@ -282,13 +282,11 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (p.telefono.isNotEmpty || (p.email != null && p.email!.isNotEmpty))
+        if (p.telefono.isNotEmpty)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _actionBtn(Icons.phone, 'Llamar', p.telefono.isNotEmpty ? _llamar : null),
-              const SizedBox(width: 12),
-              _actionBtn(Icons.email, 'Correo', (p.email != null && p.email!.isNotEmpty) ? _enviarCorreo : null),
             ],
           ),
         const SizedBox(height: 16),

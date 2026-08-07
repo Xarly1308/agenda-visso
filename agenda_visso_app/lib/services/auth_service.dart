@@ -23,6 +23,10 @@ class AuthService {
     await _auth.signOut();
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email);
+  }
+
   Future<bool> esProfesionalValido(String uid) async {
     try {
       final doc = await _rest.getProfesional(uid);

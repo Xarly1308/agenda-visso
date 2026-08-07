@@ -5,13 +5,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/auth_provider.dart';
 import '../providers/agenda_provider.dart';
+import '../providers/config_provider.dart';
+import '../providers/notificacion_provider.dart';
 import '../services/app_update_service.dart';
+import '../services/functions_service.dart';
+import '../services/firestore_rest_service.dart';
+import '../utils/audit_logger.dart';
 import 'config_sedes_screen.dart';
+import 'gestionar_franquicias_screen.dart';
 import 'excepciones_screen.dart';
 import 'resumen_horarios_screen.dart';
 import 'tipos_consulta_screen.dart';
+import 'limpiar_datos_screen.dart';
+import 'audit_log_screen.dart';
+import 'audit_config_screen.dart';
 
-const String kAppVersion = '1.3.10';
+const String kAppVersion = '1.3.11';
 
 class ConfigScreen extends StatefulWidget {
   const ConfigScreen({super.key});
@@ -21,37 +30,30 @@ class ConfigScreen extends StatefulWidget {
 }
 
 class _ConfigScreenState extends State<ConfigScreen> {
-  int _acercaDeTaps = 0;
-  bool _mostrarDev = false;
+  List<Map<String, dynamic>> _franquicias = [];
+  bool _cargandoFranquicias = false;
 
-  void _onAcercaDeTap() {
-    _acercaDeTaps++;
-    if (_acercaDeTaps >= 7) {
-      if (!_mostrarDev) {
-        setState(() => _mostrarDev = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Modo desarrollador activado!'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      _acercaDeTaps = 0;
-    } else {
-      final restantes = 7 - _acercaDeTaps;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$restantes toques para activar modo desarrollador'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    }
+  @override
+  void initState() {
+    super.initState();
+    _cargarFranquicias();
+  }
+
+  Future<void> _cargarFranquicias() async {
+    setState(() => _cargandoFranquicias = true);
+    try {
+      final f = await FirestoreRestService().getTodasFranquicias();
+      if (mounted) setState(() => _franquicias = f);
+    } catch (_) {}
+    if (mounted) setState(() => _cargandoFranquicias = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final auth = context.watch<AuthProvider>();
+    final esDesarrollador = auth.esDesarrollador;
+    final viendoOtra = auth.viendoOtraFranquicia;
     return Column(
       children: [
         Expanded(
@@ -122,6 +124,104 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 onTap: () => _enviarInvitacionWhatsApp(context),
               ),
 
+if (esDesarrollador) ...[
+                const SizedBox(height: 24),
+                _SectionHeader(title: 'Desarrollador', color: Colors.red),
+                const SizedBox(height: 8),
+                if (viendoOtra) ...[
+                  Card(
+                    color: Colors.orange.shade50,
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.orange,
+                        child: Icon(LucideIcons.eye, color: Colors.white, size: 20),
+                      ),
+                      title: Text('Viendo: ${auth.franquiciaNombre ?? auth.franquiciaId}',
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Estás visualizando otra franquicia'),
+                      trailing: TextButton(
+                        onPressed: () async {
+                          await auth.volverAMiFranquicia();
+                          if (context.mounted) {
+                            final uid = auth.user?.uid;
+                            if (uid != null) {
+                              context.read<ConfigProvider>().inicializar(uid);
+                              context.read<AgendaProvider>().inicializar(uid, nombre: auth.nombreUsuario);
+                              context.read<NotificacionProvider>().inicializar(uid);
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Volviendo a tu franquicia'), behavior: SnackBarBehavior.floating),
+                            );
+                          }
+                        },
+                        child: const Text('Volver a la mía'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                _cargandoFranquicias
+                    ? const Card(child: Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()))
+                    : Card(
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.deepPurple.withAlpha(30),
+                            child: const Icon(LucideIcons.building, color: Colors.deepPurple),
+                          ),
+                          title: const Text('Cambiar franquicia', style: TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text(viendoOtra
+                              ? 'Ver datos de otra franquicia'
+                              : 'Franquicia actual: ${auth.franquiciaNombre ?? auth.franquiciaId}'),
+                          trailing: const Icon(LucideIcons.chevronRight),
+                          onTap: () => _mostrarSelectorFranquicia(context),
+                        ),
+                      ),
+                const SizedBox(height: 8),
+                _CardButton(
+                  icon: LucideIcons.building,
+                  title: 'Gestionar franquicias',
+                  subtitle: 'Ver, agregar, editar franquicias y profesionales',
+                  color: Colors.deepPurple,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GestionarFranquiciasScreen()),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _CardButton(
+                  icon: LucideIcons.eraser,
+                  title: 'Limpiar datos',
+                  subtitle: 'Selecciona qué datos eliminar de la franquicia activa',
+                  color: Colors.red,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LimpiarDatosScreen()),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _CardButton(
+                  icon: LucideIcons.scrollText,
+                  title: 'Registro de cambios',
+                  subtitle: 'Ver historial de acciones realizadas',
+                  color: Colors.teal,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AuditLogScreen()),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _CardButton(
+                  icon: LucideIcons.slidersHorizontal,
+                  title: 'Configurar registro',
+                  subtitle: 'Seleccionar qué operaciones se registran',
+                  color: Colors.teal,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AuditConfigScreen()),
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 24),
               _SectionHeader(title: 'Información'),
               const SizedBox(height: 8),
@@ -130,24 +230,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 title: 'Acerca de',
                 subtitle: 'Versión $kAppVersion — información y actualizaciones',
                 color: Colors.blueGrey,
-                onTap: () {
-                  _onAcercaDeTap();
-                  _mostrarAcercaDe(context);
-                },
+                onTap: () => _mostrarAcercaDe(context),
               ),
-
-              if (_mostrarDev) ...[
-                const SizedBox(height: 24),
-                _SectionHeader(title: 'Desarrollador', color: Colors.red),
-                const SizedBox(height: 8),
-                _CardButton(
-                icon: LucideIcons.eraser,
-                  title: 'Limpiar datos',
-                  subtitle: 'Selecciona qué datos eliminar',
-                  color: Colors.red,
-                  onTap: () => _mostrarSelectorLimpieza(context),
-                ),
-              ],
 
               const SizedBox(height: 16),
             ],
@@ -278,6 +362,7 @@ void _mostrarAcercaDe(BuildContext context) {
 
 Future<void> _buscarActualizacion(BuildContext context) async {
   final service = AppUpdateService();
+
   final version = await service.getLatestVersion();
   if (version == null) {
     if (context.mounted) {
@@ -336,9 +421,6 @@ Future<void> _buscarActualizacion(BuildContext context) async {
 
   SharedPreferences.getInstance().then((p) => p.setString('ota_attempted_version', kAppVersion));
 
-  double progreso = 0;
-  String estado = 'Descargando...';
-
   showDialog(
     context: context,
     barrierDismissible: false,
@@ -348,6 +430,352 @@ Future<void> _buscarActualizacion(BuildContext context) async {
         child: _DownloadDialog(service: service, apkUrl: apkUrl),
       );
     },
+  );
+}
+
+Future<void> _mostrarCrearFranquicia(BuildContext context) async {
+  final codigoCtrl = TextEditingController();
+  final nombreCtrl = TextEditingController();
+  final direccionCtrl = TextEditingController();
+  final telefonoCtrl = TextEditingController();
+
+  await showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Agregar franquicia'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: codigoCtrl, decoration: const InputDecoration(labelText: 'Código (p.ej. 2000)', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre (p.ej. Nueva Sede)', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: direccionCtrl, decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: telefonoCtrl, decoration: const InputDecoration(labelText: 'Teléfono/WhatsApp', border: OutlineInputBorder())),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+        FilledButton(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            if (codigoCtrl.text.trim().isEmpty || nombreCtrl.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código y nombre son obligatorios'), behavior: SnackBarBehavior.floating));
+              return;
+            }
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Agregando franquicia...'), behavior: SnackBarBehavior.floating));
+            try {
+              await FunctionsService.crearFranquicia(
+                codigo: codigoCtrl.text.trim(),
+                nombre: nombreCtrl.text.trim(),
+                direccion: direccionCtrl.text.trim().isEmpty ? null : direccionCtrl.text.trim(),
+                telefonoContacto: telefonoCtrl.text.trim().isEmpty ? null : telefonoCtrl.text.trim(),
+              );
+              AuditLogger().registrar(
+                categoria: 'franquicias',
+                accion: 'crear',
+                coleccion: 'franquicias',
+                documentoId: codigoCtrl.text.trim(),
+                usuarioId: context.read<AuthProvider>().user?.uid ?? '',
+                usuarioNombre: context.read<AuthProvider>().nombreUsuario ?? 'Desarrollador',
+                detalles: 'Franquicia "${nombreCtrl.text.trim()}" creada desde config',
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Franquicia ${codigoCtrl.text} agregada'), behavior: SnackBarBehavior.floating));
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating));
+              }
+            }
+          },
+          child: const Text('Agregar'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _mostrarCrearProfesional(BuildContext context) async {
+  final emailCtrl = TextEditingController();
+  final passwordCtrl = TextEditingController();
+  final nombreCtrl = TextEditingController();
+  final documentoCtrl = TextEditingController();
+
+  final restService = FirestoreRestService();
+  List<Map<String, dynamic>> franquicias = [];
+  try {
+    franquicias = await restService.getTodasFranquicias();
+  } catch (_) {}
+
+  String? franquiciaSeleccionada = franquicias.isNotEmpty ? franquicias.first['codigo'] as String? : null;
+
+  await showDialog(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) => AlertDialog(
+        title: const Text('Agregar profesional'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre completo', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email (acceso a la app)', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextField(controller: passwordCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Contraseña (mín. 6 caracteres)', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextField(controller: documentoCtrl, decoration: const InputDecoration(labelText: 'Documento (opcional)', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: franquiciaSeleccionada,
+                decoration: const InputDecoration(labelText: 'Franquicia', border: OutlineInputBorder()),
+                items: franquicias.map((f) {
+                  final cod = f['codigo'] as String? ?? '';
+                  final nom = f['nombre'] as String? ?? '';
+                  return DropdownMenuItem(value: cod, child: Text('$cod - $nom'));
+                }).toList(),
+                onChanged: (v) => setDialogState(() => franquiciaSeleccionada = v),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              if (emailCtrl.text.trim().isEmpty || passwordCtrl.text.trim().isEmpty ||
+                  nombreCtrl.text.trim().isEmpty || franquiciaSeleccionada == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email, contraseña, nombre y franquicia son obligatorios'), behavior: SnackBarBehavior.floating));
+                return;
+              }
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Agregando profesional...'), behavior: SnackBarBehavior.floating));
+              try {
+                final result = await FunctionsService.crearProfesional(
+                  email: emailCtrl.text.trim(),
+                  password: passwordCtrl.text.trim(),
+                  nombre: nombreCtrl.text.trim(),
+                  documento: documentoCtrl.text.trim().isEmpty ? null : documentoCtrl.text.trim(),
+                  franquiciaId: franquiciaSeleccionada!,
+                );
+                AuditLogger().registrar(
+                  categoria: 'profesionales',
+                  accion: 'crear',
+                  coleccion: 'profesionales',
+                  usuarioId: context.read<AuthProvider>().user?.uid ?? '',
+                  usuarioNombre: context.read<AuthProvider>().nombreUsuario ?? 'Desarrollador',
+                  detalles: 'Profesional "${nombreCtrl.text.trim()}" creado (${emailCtrl.text.trim()})',
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Profesional agregado: ${emailCtrl.text.trim()} → UID ${result['uid']}'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 4),
+                  ));
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating));
+                }
+              }
+            },
+            child: const Text('Agregar'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _mostrarGestionarFranquicias(BuildContext context) async {
+  final restService = FirestoreRestService();
+  List<Map<String, dynamic>> franquicias = [];
+  List<Map<String, dynamic>> profesionales = [];
+  try {
+    final results = await Future.wait([
+      restService.getTodasFranquicias(),
+      restService.getTodosProfesionales(),
+    ]);
+    franquicias = results[0] as List<Map<String, dynamic>>;
+    profesionales = results[1] as List<Map<String, dynamic>>;
+  } catch (_) {}
+
+  await showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Gestionar franquicias'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Franquicias', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  FilledButton.tonalIcon(
+                    icon: const Icon(LucideIcons.plus, size: 18),
+                    label: const Text('Agregar'),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _mostrarCrearFranquicia(context);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (franquicias.isEmpty)
+                const Padding(padding: EdgeInsets.all(8), child: Text('No hay franquicias registradas', style: TextStyle(color: Colors.grey)))
+              else
+                ...franquicias.map((f) {
+                  final cod = f['codigo'] as String? ?? '';
+                  final nom = f['nombre'] as String? ?? '';
+                  final dir = f['direccion'] as String? ?? '';
+                  final tel = f['telefonoContacto'] as String? ?? '';
+                  return Card(
+                    child: ListTile(
+                      leading: CircleAvatar(backgroundColor: Colors.deepPurple.shade100, child: Text(cod, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      title: Text(nom),
+                      subtitle: Text([if (dir.isNotEmpty) dir, if (tel.isNotEmpty) tel].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  );
+                }),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Profesionales', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  FilledButton.tonalIcon(
+                    icon: const Icon(LucideIcons.plus, size: 18),
+                    label: const Text('Agregar'),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _mostrarCrearProfesional(context);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (profesionales.isEmpty)
+                const Padding(padding: EdgeInsets.all(8), child: Text('No hay profesionales activos', style: TextStyle(color: Colors.grey)))
+              else
+                ...profesionales.map((p) {
+                  final nombre = p['nombre'] as String? ?? p['email'] as String? ?? '';
+                  final email = p['email'] as String? ?? '';
+                  final fid = p['franquiciaId'] as String? ?? '';
+                  return Card(
+                    child: ListTile(
+                      leading: CircleAvatar(backgroundColor: Colors.green.shade100, child: Icon(LucideIcons.user, size: 20, color: Colors.green.shade700)),
+                      title: Text(nombre),
+                      subtitle: Text('$email · Franquicia $fid', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
+      ],
+    ),
+  );
+}
+
+Future<void> _mostrarSelectorFranquicia(BuildContext context) async {
+  final auth = context.read<AuthProvider>();
+  final franchises = await FirestoreRestService().getTodasFranquicias();
+  if (!context.mounted) return;
+
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.building, size: 20, color: Colors.deepPurple),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Selecciona la franquicia a visualizar',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                ),
+                IconButton(
+                  icon: const Icon(LucideIcons.x),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (franchises.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Text('No hay franquicias registradas', style: TextStyle(color: Colors.grey)),
+            )
+          else
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: franchises.map((f) {
+                  final cod = f['codigo'] as String? ?? '';
+                  final nom = f['nombre'] as String? ?? '';
+                  final dir = f['direccion'] as String? ?? '';
+                  final isSelected = auth.franquiciaId == cod;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isSelected ? Colors.deepPurple : Colors.deepPurple.withAlpha(30),
+                      child: Text(cod, style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : Colors.deepPurple,
+                      )),
+                    ),
+                    title: Text(nom, style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    )),
+                    subtitle: dir.isNotEmpty ? Text(dir, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+                    trailing: isSelected
+                        ? const Icon(LucideIcons.check, color: Colors.deepPurple)
+                        : const Icon(LucideIcons.chevronRight),
+                    onTap: isSelected
+                        ? null
+                        : () async {
+                            Navigator.pop(ctx);
+                            await auth.switchFranquicia(cod, nom);
+                            if (context.mounted) {
+                              final uid = auth.user?.uid;
+                              if (uid != null) {
+                                context.read<ConfigProvider>().inicializar(uid);
+                                context.read<AgendaProvider>().inicializar(uid, nombre: auth.nombreUsuario);
+                                context.read<NotificacionProvider>().inicializar(uid);
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Cambiando a franquicia: $nom'),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: Colors.deepPurple,
+                                ),
+                              );
+                            }
+                          },
+                  );
+                }).toList(),
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    ),
   );
 }
 
@@ -382,124 +810,6 @@ void _confirmarLimpiar(BuildContext context, String tipo) {
       ],
     ),
   );
-}
-
-Future<void> _mostrarSelectorLimpieza(BuildContext context) async {
-  final colecciones = <String, _InfoColeccion>{
-    'citas': _InfoColeccion(Icons.calendar_today, 'Citas', 'Todas las citas agendadas'),
-    'sedes': _InfoColeccion(Icons.store, 'Sedes', 'Todas las sedes registradas'),
-    'horarios': _InfoColeccion(Icons.schedule, 'Horarios', 'Horarios de atención configurados'),
-    'tipos_consulta': _InfoColeccion(LucideIcons.heartPulse, 'Tipos de consulta', 'Tipos de consulta configurados'),
-    'excepciones': _InfoColeccion(Icons.block, 'Excepciones', 'Días no laborables marcados'),
-    'pacientes': _InfoColeccion(Icons.people, 'Pacientes', 'Todos los pacientes registrados'),
-    'notificaciones': _InfoColeccion(Icons.notifications, 'Notificaciones', 'Historial de notificaciones'),
-  };
-
-  final seleccionadas = await showDialog<Set<String>>(
-    context: context,
-    builder: (ctx) {
-      final seleccion = <String>{};
-      return StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Limpiar datos'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: colecciones.entries.map((e) {
-                final key = e.key;
-                final info = e.value;
-                final checked = seleccion.contains(key);
-                return CheckboxListTile(
-                  value: checked,
-                  title: Text(info.nombre),
-                  subtitle: Text(info.descripcion, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                  secondary: Icon(info.icono, color: Colors.red.shade300),
-                  controlAffinity: ListTileControlAffinity.trailing,
-                  onChanged: (_) {
-                    setDialogState(() {
-                      if (checked) {
-                        seleccion.remove(key);
-                      } else {
-                        seleccion.add(key);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-            FilledButton.icon(
-              icon: const Icon(LucideIcons.trash2, size: 18),
-              label: Text('Limpiar (${seleccion.length})'),
-              onPressed: seleccion.isEmpty
-                  ? null
-                  : () => Navigator.pop(ctx, seleccion),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-
-  if (seleccionadas == null || seleccionadas.isEmpty || !context.mounted) return;
-
-  final confirmar = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('¿Estás seguro?'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(LucideIcons.alertTriangle, size: 48, color: Colors.red),
-          const SizedBox(height: 12),
-          const Text('Se eliminarán los siguientes datos:'),
-          const SizedBox(height: 8),
-          ...seleccionadas.map((s) {
-            final info = colecciones[s]!;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Icon(info.icono, size: 18, color: Colors.red.shade300),
-                  const SizedBox(width: 8),
-                  Text(info.nombre),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: 12),
-          const Text('Esta acción NO se puede deshacer.', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-        ),
-      ],
-    ),
-  );
-
-  if (confirmar != true || !context.mounted) return;
-
-  final agenda = context.read<AgendaProvider>();
-  await agenda.limpiarDatos(seleccionadas.toList());
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Limpieza completada'), behavior: SnackBarBehavior.floating),
-    );
-  }
-}
-
-class _InfoColeccion {
-  final IconData icono;
-  final String nombre;
-  final String descripcion;
-  const _InfoColeccion(this.icono, this.nombre, this.descripcion);
 }
 
 class _DownloadDialog extends StatefulWidget {
@@ -600,10 +910,21 @@ Future<void> _enviarInvitacionWhatsApp(BuildContext context) async {
     'https://agendavisso.web.app\n\n'
     'Agenda tu cita de forma rápida y sencilla.',
   );
-  final uri = Uri.parse('https://wa.me/?text=$mensaje');
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } else {
+  final uris = [
+    Uri.parse('whatsapp://send?text=$mensaje'),
+    Uri.parse('https://wa.me/?text=$mensaje'),
+  ];
+  for (final uri in uris) {
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    } catch (_) {}
+  }
+  try {
+    await launchUrl(uris[1], mode: LaunchMode.platformDefault);
+  } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

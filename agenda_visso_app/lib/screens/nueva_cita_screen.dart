@@ -11,22 +11,11 @@ import '../models/paciente.dart';
 import '../providers/agenda_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/firestore_service.dart';
+import '../utils/audit_logger.dart';
 import '../utils/formato_hora.dart';
 import '../utils/calculador_slots.dart';
-
-IconData _iconoDeSede(String icono) {
-  switch (icono) {
-    case 'store': return LucideIcons.store;
-    case 'medical_services': return LucideIcons.heartPulse;
-    case 'visibility': return LucideIcons.eye;
-    case 'local_hospital': return LucideIcons.stethoscope;
-    case 'home': return LucideIcons.home;
-    case 'business': return LucideIcons.building2;
-    case 'location_city': return LucideIcons.building2;
-    case 'apartment': return LucideIcons.building;
-    default: return LucideIcons.store;
-  }
-}
+import '../utils/colombian_holidays.dart';
+import '../utils/sede_icons.dart';
 
 class NuevaCitaScreen extends StatefulWidget {
   final VoidCallback? onCitaCreada;
@@ -177,6 +166,15 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
           email: email.isEmpty ? null : email,
           yaEraPaciente: _yaEraPaciente,
         ));
+        AuditLogger().registrar(
+          categoria: 'citas',
+          accion: 'crear',
+          coleccion: 'pacientes',
+          documentoId: paciente.id,
+          usuarioId: auth.user?.uid ?? '',
+          usuarioNombre: auth.nombreUsuario ?? 'Desconocido',
+          detalles: 'Paciente "$nombres" registrado (doc: $doc)',
+        );
       }
     }
 
@@ -261,23 +259,32 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
       children: [
         Text('Selecciona la sede:', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
-        ..._sedes.map((s) => Card(
-          child: ListTile(
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              child: Icon(_iconoDeSede(s.icono), color: Colors.white, size: 24),
+        if (_sedes.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: Center(
+              child: Text('No hay sedes registradas',
+                style: TextStyle(color: Colors.grey, fontSize: 16)),
             ),
-            title: Text(s.nombre),
-            subtitle: Text(s.direccion),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _onSedeSeleccionada(s),
-          ),
-        )),
+          )
+        else
+          ..._sedes.map((s) => Card(
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                child: Icon(iconoDeSede(s.icono), color: Colors.white, size: 24),
+              ),
+              title: Text(s.nombre),
+              subtitle: Text(s.direccion),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _onSedeSeleccionada(s),
+            ),
+          )),
       ],
     );
   }
@@ -288,15 +295,23 @@ class _NuevaCitaScreenState extends State<NuevaCitaScreen> {
     while (!actual.isAfter(_hasta)) {
       if (_diasLaborales.contains(actual.weekday)) {
         final fechaStr = DateFormat('yyyy-MM-dd').format(actual);
-        final ex = _excepciones.cast<Excepcion?>().firstWhere(
-          (e) => DateFormat('yyyy-MM-dd').format(e!.fecha) == fechaStr,
-          orElse: () => null,
-        );
-        fechas.add(_FechaInfo(
-          fecha: actual,
-          disponible: ex == null,
-          motivo: ex?.motivo,
-        ));
+        if (ColombianHolidays.esFestivo(actual)) {
+          fechas.add(_FechaInfo(
+            fecha: actual,
+            disponible: false,
+            motivo: ColombianHolidays.nombreFestivo(actual),
+          ));
+        } else {
+          final ex = _excepciones.cast<Excepcion?>().firstWhere(
+            (e) => DateFormat('yyyy-MM-dd').format(e!.fecha) == fechaStr,
+            orElse: () => null,
+          );
+          fechas.add(_FechaInfo(
+            fecha: actual,
+            disponible: ex == null,
+            motivo: ex?.motivo,
+          ));
+        }
       }
       actual = actual.add(const Duration(days: 1));
     }

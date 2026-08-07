@@ -1,5 +1,6 @@
 class Cita {
   final String id;
+  final String franquiciaId;
   final String profesionalId;
   final String sedeId;
   final String pacienteId;
@@ -15,6 +16,7 @@ class Cita {
 
   Cita({
     required this.id,
+    this.franquiciaId = '1000',
     required this.profesionalId,
     required this.sedeId,
     required this.pacienteId,
@@ -31,6 +33,7 @@ class Cita {
 
   Map<String, dynamic> toMap() => {
         'id': id,
+        'franquiciaId': franquiciaId,
         'profesionalId': profesionalId,
         'sedeId': sedeId,
         'pacienteId': pacienteId,
@@ -47,6 +50,7 @@ class Cita {
 
   factory Cita.fromMap(Map<String, dynamic> map) => Cita(
         id: map['id'] as String? ?? '',
+        franquiciaId: map['franquiciaId'] as String? ?? '1000',
         profesionalId: map['profesionalId'] as String? ?? '',
         sedeId: map['sedeId'] as String? ?? '',
         pacienteId: map['pacienteId'] as String? ?? '',
@@ -63,6 +67,7 @@ class Cita {
 
   Cita copyWith({
     String? id,
+    String? franquiciaId,
     String? profesionalId,
     String? sedeId,
     String? pacienteId,
@@ -78,6 +83,7 @@ class Cita {
   }) {
     return Cita(
       id: id ?? this.id,
+      franquiciaId: franquiciaId ?? this.franquiciaId,
       profesionalId: profesionalId ?? this.profesionalId,
       sedeId: sedeId ?? this.sedeId,
       pacienteId: pacienteId ?? this.pacienteId,

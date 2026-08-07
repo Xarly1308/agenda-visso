@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/sede.dart';
 import '../models/horario.dart';
 import '../providers/config_provider.dart';
+import '../utils/audit_logger.dart';
 import '../utils/formato_hora.dart';
 
 class SedeHorariosScreen extends StatefulWidget {
@@ -56,6 +57,15 @@ class _SedeHorariosScreenState extends State<SedeHorariosScreen> {
       }
     }
     await config.guardarHorarios(sedeId: widget.sede.id, horarios: horarios);
+    AuditLogger().registrar(
+      categoria: 'horarios',
+      accion: 'editar',
+      coleccion: 'horarios',
+      documentoId: widget.sede.id,
+      usuarioId: '',
+      usuarioNombre: 'Desarrollador',
+      detalles: 'Horarios de sede "${widget.sede.nombre}" actualizados (${horarios.length} rangos)',
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Horarios guardados')));
     }

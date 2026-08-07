@@ -76,6 +76,17 @@ class NotificacionService {
     }
   }
 
+  static Future<void> suscribirAFranquicia(String franquiciaId) async {
+    if (franquiciaId.isEmpty) return;
+    try {
+      await FirebaseMessaging.instance
+          .subscribeToTopic('profesional_notificaciones_$franquiciaId');
+      debugPrint('Subscribed to topic profesional_notificaciones_$franquiciaId');
+    } catch (e) {
+      debugPrint('Error subscribing to franchise topic: $e');
+    }
+  }
+
   static void _onForegroundMessage(RemoteMessage message) {
     final title = message.notification?.title ?? 'Nueva notificación';
     final body = message.notification?.body ?? '';

@@ -33,8 +33,12 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
       final fin = DateTime(_anioSeleccionado, _mesSeleccionado + 1, 0);
 
       final pacientes = await _service.getAllPacientes();
-      _nuevos = pacientes.where((p) => !p.yaEraPaciente).length;
-      _antiguos = pacientes.where((p) => p.yaEraPaciente).length;
+      final pacientesMes = pacientes.where((p) {
+        return p.creadoEn.isAfter(inicio.subtract(const Duration(days: 1))) &&
+               p.creadoEn.isBefore(fin.add(const Duration(days: 1)));
+      }).toList();
+      _nuevos = pacientesMes.where((p) => !p.yaEraPaciente).length;
+      _antiguos = pacientesMes.where((p) => p.yaEraPaciente).length;
 
       final citas = await _service.getCitasEnRango(inicio, fin);
       _totalCitas = citas.length;
