@@ -20,7 +20,7 @@ import 'limpiar_datos_screen.dart';
 import 'audit_log_screen.dart';
 import 'audit_config_screen.dart';
 
-const String kAppVersion = '1.3.11';
+const String kAppVersion = '1.3.12';
 
 class ConfigScreen extends StatefulWidget {
   const ConfigScreen({super.key});
