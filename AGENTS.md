@@ -13,10 +13,10 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - **OTA**: `ota_update` package + GitHub Releases (PackageInstaller API, `usePackageInstaller: true`)
 
 ## Current State
-- Latest APK: **v1.3.7** — `https://github.com/Xarly1308/agenda-visso/releases/download/v1.3.7/app-release.apk`
-- OTA version doc: `app_version/latest` in Firestore (updated to 1.2.9)
-- `kAppVersion = '1.3.7'` in `config_screen.dart`
-- `pubspec.yaml version: 1.3.7+1`
+- Latest APK: **v1.3.11** — `https://github.com/Xarly1308/agenda-visso/releases/download/v1.3.11/app-release.apk`
+- OTA version doc: `app_version/latest` in Firestore (updated to 1.3.11)
+- `kAppVersion = '1.3.11'` in `config_screen.dart`
+- `pubspec.yaml version: 1.3.11+1`
 
 ## Fixes (May 23)
 - **Hoy no se podía agendar** — ambas apps usaban `hoy.add(Duration(days: 1))` como inicio del rango de fechas disponibles. Se cambió a `hoy` para incluir el día actual.
@@ -65,7 +65,7 @@ Complete both apps (professional + patient) for single-professional optometry cl
 ## Next Steps
 1. Investigate push notification delivery on POCO C85 (MIUI settings: Autostart, battery optimization, notification permissions)
 2. Add push for status changes (confirm/cancel) via `onUpdate` Cloud Function
-3. Migrate from `functions.config()` to params package (deprecation deadline March 2027)
+3. ~~Migrate from `functions.config()` to params package (deprecation deadline March 2027)~~ ✅ Done
 4. Upgrade `firebase-functions` package (Node 20 runtime deprecation warning)
 5. Resolve cleanup policy for container images in us-central1 (`firebase functions:artifacts:setpolicy`)
 6. Custom domain for Resend (production email)
