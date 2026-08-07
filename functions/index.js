@@ -304,6 +304,46 @@ exports.enviarReagendamiento = onDocumentUpdated('citas/{citaId}', async (event)
     return;
   }
 
+  // Confirmación (estado cambia a 'confirmada')
+  if (antes.estado !== 'confirmada' && despues.estado === 'confirmada') {
+    const { cita, sede, paciente, franquicia } = await obtenerDatosCita(citaId);
+
+    try {
+      const nombrePaciente = (paciente.nombres || 'Paciente').split(' ').slice(0, 2).join(' ');
+      const franquiciaId = cita.franquiciaId || '1000';
+      await messaging.send({
+        topic: `profesional_notificaciones_${franquiciaId}`,
+        notification: { title: 'Cita confirmada', body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}` },
+        android: {
+          notification: {
+            channelId: 'nuevas_citas',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          },
+        },
+        data: { tipo: 'cita_confirmada', citaId, franquiciaId },
+      });
+      logger.log(`Push confirmación enviado (franquicia ${franquiciaId})`);
+    } catch (err) {
+      logger.error('Error push confirmación:', err);
+    }
+
+    if (!paciente.email) return;
+    const fechaFormateada = formatearFecha(cita.fecha);
+    const nombrePaciente = paciente.nombres.split(' ').slice(0, 2).join(' ');
+    const contacto = obtenerContacto(sede, franquicia);
+    const html = plantillaEmail({
+      titulo: 'Cita Confirmada', nombrePaciente, fechaFormateada, hora: cita.hora, sede, contacto,
+      esCancelacion: false,
+    });
+    try {
+      await enviarCorreo({ to: paciente.email, subject: `Cita confirmada - ${sede.nombre} - ${formatoHora12h(cita.hora)}`, html, citaId });
+      logger.log(`Confirmación enviada a ${paciente.email}`);
+    } catch (err) {
+      logger.error('Error enviando confirmación:', err);
+    }
+    return;
+  }
+
   // Reagendamiento (cambio de fecha u hora en cita no cancelada)
   const fechaCambio = antes.fecha !== despues.fecha || antes.hora !== despues.hora;
   if (fechaCambio && despues.estado !== 'cancelada') {
