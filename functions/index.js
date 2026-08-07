@@ -166,6 +166,12 @@ exports.enviarConfirmacion = onDocumentCreated('citas/{citaId}', async (event) =
         messaging.send({
           topic: `profesional_notificaciones_${franquiciaId}`,
           notification: { title: 'Nueva cita agendada', body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}` },
+          android: {
+            notification: {
+              channelId: 'nuevas_citas',
+              clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            },
+          },
           data: { tipo: 'nueva_cita', citaId, franquiciaId },
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout push')), 15000)),
@@ -268,6 +274,12 @@ exports.enviarReagendamiento = onDocumentUpdated('citas/{citaId}', async (event)
       await messaging.send({
         topic: `profesional_notificaciones_${franquiciaId}`,
         notification: { title: 'Cita cancelada', body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}` },
+        android: {
+          notification: {
+            channelId: 'nuevas_citas',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          },
+        },
         data: { tipo: 'cita_cancelada', citaId, franquiciaId },
       });
       logger.log(`Push cancelación enviado (franquicia ${franquiciaId})`);
@@ -302,7 +314,13 @@ exports.enviarReagendamiento = onDocumentUpdated('citas/{citaId}', async (event)
       const franquiciaId = cita.franquiciaId || '1000';
       await messaging.send({
         topic: `profesional_notificaciones_${franquiciaId}`,
-        notification: { title: 'Cita reagendada', body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}` },
+        notification: { title: `Cita reagendada`, body: `${nombrePaciente} - ${sede.nombre} - ${cita.fecha} ${cita.hora}` },
+        android: {
+          notification: {
+            channelId: 'nuevas_citas',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          },
+        },
         data: { tipo: 'cita_reagendada', citaId, franquiciaId },
       });
       logger.log(`Push reagendamiento enviado (franquicia ${franquiciaId})`);

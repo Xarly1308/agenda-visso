@@ -61,8 +61,6 @@ class NotificacionService {
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission();
-      await messaging.subscribeToTopic('profesional_notificaciones');
-      debugPrint('Subscribed to topic profesional_notificaciones');
       final token = await messaging.getToken();
       if (token != null) {
         final prefs = await SharedPreferences.getInstance();
