@@ -66,6 +66,6 @@ Complete both apps (professional + patient) for single-professional optometry cl
 1. Investigate push notification delivery on POCO C85 (MIUI settings: Autostart, battery optimization, notification permissions)
 2. Add push for status changes (confirm/cancel) via `onUpdate` Cloud Function
 3. ~~Migrate from `functions.config()` to params package (deprecation deadline March 2027)~~ ✅ Done
-4. Upgrade `firebase-functions` package (Node 20 runtime deprecation warning)
+4. ~~Upgrade `firebase-functions` package (Node 20 runtime deprecation warning)~~ ✅ Done (already on latest v7.3.2 + Node 22)
 5. ~~Resolve cleanup policy for container images in us-central1 (`firebase functions:artifacts:setpolicy`)~~ ✅ Done (7 days retention)
 6. Custom domain for Resend (production email)
