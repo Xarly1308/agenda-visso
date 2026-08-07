@@ -54,7 +54,7 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - Contacto para emails: `obtenerContacto(sede, franquicia)` → `sede.telefono` || `franquicia.telefonoContacto` || legacy `SEDES_CONTACTO`. `franquicias/1000` tiene `direccion` + `telefonoContacto`.
 
 ## Known Issues
-- **Push notifications not delivered on device** — Cloud Function sends push (logged "Push enviado al profesional"), but POCO C85 (MIUI) doesn't show notification. Likely MIUI battery optimization / notification settings. User hasn't confirmed after v1.2.7.
+- **Push notifications not delivered on device** — Fixed: added FCM default channel/icon in manifest, channelId in Cloud Function payloads, removed dead topic subscription. Needs testing on POCO C85 after rebuild (v1.3.12+).
 - **Resend test mode** — `onboarding@resend.dev` only sends to verified emails; need custom domain for production delivery.
 - **FreeDomain** (`https://github.com/DigitalPlatDev/FreeDomain`) evaluated but may have deliverability issues; hold off for now.
 
