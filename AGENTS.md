@@ -7,16 +7,16 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - **Firebase project**: `agendavisso`
 - **Patient app**: `https://agendavisso.web.app` (Flutter web, Firebase Hosting target `paciente`)
 - **Professional app**: `https://agendavisso-pro.web.app` (Flutter Android + web, Firebase Hosting target `pro`)
-- **Cloud Functions**: Node.js 20 (1st gen) — `enviarConfirmacion`, `enviarRecordatorios`, `enviarReagendamiento`
+- **Cloud Functions**: Node.js 22 (2nd gen) — `enviarConfirmacion`, `enviarRecordatorios`, `enviarReagendamiento`
 - **Email**: Resend API (native `fetch`, no nodemailer)
 - **Auth**: Anonymous Firebase Auth + Bearer token for Firestore REST v1 calls
 - **OTA**: `ota_update` package + GitHub Releases (PackageInstaller API, `usePackageInstaller: true`)
 
 ## Current State
-- Latest APK: **v1.3.11** — `https://github.com/Xarly1308/agenda-visso/releases/download/v1.3.11/app-release.apk`
-- OTA version doc: `app_version/latest` in Firestore (updated to 1.3.11)
-- `kAppVersion = '1.3.11'` in `config_screen.dart`
-- `pubspec.yaml version: 1.3.11+1`
+- Latest APK: **v1.3.12** — `https://github.com/Xarly1308/agenda-visso/releases/download/v1.3.12/app-release.apk`
+- OTA version doc: `app_version/latest` in Firestore (updated to 1.3.12)
+- `kAppVersion = '1.3.12'` in `config_screen.dart`
+- `pubspec.yaml version: 1.3.12+1`
 
 ## Fixes (May 23)
 - **Hoy no se podía agendar** — ambas apps usaban `hoy.add(Duration(days: 1))` como inicio del rango de fechas disponibles. Se cambió a `hoy` para incluir el día actual.
@@ -36,12 +36,15 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - Email template: logo (GitHub raw URL), sede-specific contact info (address + phone per sede), "Cita Agendada" title, cancel info
 - Resend configured: `resend.apikey` + `resend.from = "onboarding@resend.dev"` (test mode)
 - SMTP/nodemailer removed from dependencies
+- **Web redesign**: Sidebar navigation (240px, collapses to 64px at <960px), 2-column agenda layout (MiniCalendar + timeline), config grid for web, stats dashboard with KPI cards. Uses `kIsWeb` to separate web/mobile layouts. Android app unaffected.
+- WhatsApp invitation restricted to franchise `1000` only (web + APK)
 
 ## Email Flow
 - **`enviarConfirmacion`** → se dispara al crear una cita (`onCreate`). Envía email con "Cita Agendada" + push al profesional.
-- **`enviarReagendamiento`** → se dispara al actualizar una cita (`onUpdate`). Detecta dos casos:
-  - Cancelación (`estado` cambia a `'cancelada'`) → email "Cita Cancelada"
-  - Reagendamiento (`fecha` u `hora` cambian en cita no cancelada) → email "Cita Reagendada"
+- **`enviarReagendamiento`** → se dispara al actualizar una cita (`onUpdate`). Detecta tres casos:
+  - Cancelación (`estado` cambia a `'cancelada'`) → email "Cita Cancelada" + push
+  - Confirmación (`estado` cambia a `'confirmada'`) → email "Cita Confirmada" + push
+  - Reagendamiento (`fecha` u `hora` cambian en cita no cancelada) → email "Cita Reagendada" + push
 - **`enviarRecordatorios`** → endpoint HTTP para Cloud Scheduler (no implementado aún). Consulta citas de mañana y envía recordatorio.
 
 ## Security Rules (Fase 4, Aug 2026)
@@ -54,7 +57,6 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - Contacto para emails: `obtenerContacto(sede, franquicia)` → `sede.telefono` || `franquicia.telefonoContacto` || legacy `SEDES_CONTACTO`. `franquicias/1000` tiene `direccion` + `telefonoContacto`.
 
 ## Known Issues
-- **Push notifications not delivered on device** — Fixed: added FCM default channel/icon in manifest, channelId in Cloud Function payloads, removed dead topic subscription. Needs testing on POCO C85 after rebuild (v1.3.12+).
 - **Resend test mode** — `onboarding@resend.dev` only sends to verified emails; need custom domain for production delivery.
 - **FreeDomain** (`https://github.com/DigitalPlatDev/FreeDomain`) evaluated but may have deliverability issues; hold off for now.
 
@@ -63,8 +65,8 @@ Complete both apps (professional + patient) for single-professional optometry cl
 - **Visso Funza**: Cra 13 #16-85, C.C Micentro Funza, Funza, Cundinamarca / (601) 823-7298 - 315 342 5703
 
 ## Next Steps
-1. Investigate push notification delivery on POCO C85 (MIUI settings: Autostart, battery optimization, notification permissions)
-2. Add push for status changes (confirm/cancel) via `onUpdate` Cloud Function
+1. ~~Investigate push notification delivery on POCO C85 (MIUI settings: Autostart, battery optimization, notification permissions)~~ ✅ Done
+2. ~~Add push for status changes (confirm/cancel) via `onUpdate` Cloud Function~~ ✅ Done
 3. ~~Migrate from `functions.config()` to params package (deprecation deadline March 2027)~~ ✅ Done
 4. ~~Upgrade `firebase-functions` package (Node 20 runtime deprecation warning)~~ ✅ Done (already on latest v7.3.2 + Node 22)
 5. ~~Resolve cleanup policy for container images in us-central1 (`firebase functions:artifacts:setpolicy`)~~ ✅ Done (7 days retention)

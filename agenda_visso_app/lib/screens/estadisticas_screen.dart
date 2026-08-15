@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/firestore_service.dart';
 
 class EstadisticasScreen extends StatefulWidget {
@@ -62,6 +63,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      return _buildWebLayout();
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Estadísticas')),
       body: _cargando
@@ -83,6 +87,145 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildWebLayout() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('Estadísticas', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              _buildMesSelectorCompact(),
+            ],
+          ),
+          const SizedBox(height: 24),
+          if (_cargando)
+            const Center(child: CircularProgressIndicator())
+          else ...[
+            _buildKPIRow(),
+            const SizedBox(height: 20),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth > 700) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildPorTipo()),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildPorSede()),
+                    ],
+                  );
+                }
+                return Column(
+                  children: [
+                    _buildPorTipo(),
+                    const SizedBox(height: 16),
+                    _buildPorSede(),
+                  ],
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKPIRow() {
+    final totalPacientes = _nuevos + _antiguos;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 700 ? 4 : (constraints.maxWidth > 400 ? 2 : 1);
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 2.0,
+          children: [
+            _buildKPICard('Total Citas', '$_totalCitas', Icons.calendar_month, Colors.blue),
+            _buildKPICard('Pacientes', '$totalPacientes', Icons.people, Colors.purple),
+            _buildKPICard('Nuevos', '$_nuevos', Icons.person_add, Colors.green),
+            _buildKPICard('Antiguos', '$_antiguos', Icons.history, Colors.orange),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildKPICard(String label, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withAlpha(25),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 22, color: color),
+            ),
+            const SizedBox(width: 14),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: color)),
+                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMesSelectorCompact() {
+    final meses = [
+      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+    ];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left, size: 20),
+          onPressed: () {
+            setState(() {
+              if (_mesSeleccionado == 1) { _mesSeleccionado = 12; _anioSeleccionado--; }
+              else { _mesSeleccionado--; }
+            });
+            _cargar();
+          },
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text('${meses[_mesSeleccionado - 1]} $_anioSeleccionado',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right, size: 20),
+          onPressed: () {
+            setState(() {
+              if (_mesSeleccionado == 12) { _mesSeleccionado = 1; _anioSeleccionado++; }
+              else { _mesSeleccionado++; }
+            });
+            _cargar();
+          },
+        ),
+      ],
     );
   }
 

@@ -22,6 +22,7 @@ import '../utils/calculador_slots.dart';
 import '../utils/sede_icons.dart';
 import 'config_screen.dart';
 import '../widgets/calendar_header.dart';
+import '../widgets/mini_calendar.dart';
 import 'nueva_cita_screen.dart';
 import 'pacientes_screen.dart';
 import 'estadisticas_screen.dart';
@@ -347,6 +348,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDesktopLayout() {
+    if (kIsWeb) return _buildWebLayout();
     final theme = Theme.of(context);
     return Theme(
       data: theme.copyWith(
@@ -398,6 +400,215 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWebLayout() {
+    final theme = Theme.of(context);
+    final auth = context.watch<AuthProvider>();
+    final width = MediaQuery.of(context).size.width;
+    final collapsed = width < 960;
+    final sidebarWidth = collapsed ? 64.0 : 240.0;
+
+    return Row(
+      children: [
+        Container(
+          width: sidebarWidth,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainer,
+            border: Border(right: BorderSide(color: theme.dividerTheme.color ?? theme.dividerColor)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: 60,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: collapsed ? Alignment.center : Alignment.centerLeft,
+                child: collapsed
+                    ? SizedBox(height: 28, child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain))
+                    : Row(
+                        children: [
+                          SizedBox(height: 28, child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain)),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text('Agenda Visso', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+              ),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              _webNavItem(0, LucideIcons.calendarDays, 'Agenda', collapsed, theme),
+              _webNavItem(1, LucideIcons.users, 'Pacientes', collapsed, theme),
+              _webNewCitaButton(collapsed, theme),
+              _webNavItem(3, LucideIcons.barChart3, 'Estadísticas', collapsed, theme),
+              _webNavItem(4, LucideIcons.settings, 'Configurar', collapsed, theme),
+              const Spacer(),
+              const Divider(height: 1),
+              if (!collapsed)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: theme.colorScheme.primary.withAlpha(30),
+                        child: Text(
+                          (auth.nombreUsuario ?? 'U')[0].toUpperCase(),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              auth.nombreUsuario ?? 'Usuario',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              auth.franquiciaNombre ?? '',
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (!collapsed)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(LucideIcons.logOut, size: 14),
+                      label: const Text('Salir', style: TextStyle(fontSize: 11)),
+                      onPressed: () => auth.logout(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red, width: 0.5),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                      ),
+                    ),
+                  ),
+                ),
+              if (collapsed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: IconButton(
+                    icon: const Icon(LucideIcons.logOut, size: 18),
+                    color: Colors.red,
+                    onPressed: () => auth.logout(),
+                    tooltip: 'Cerrar sesión',
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Column(
+            children: [
+              Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  border: Border(bottom: BorderSide(color: theme.dividerTheme.color ?? theme.dividerColor)),
+                ),
+                child: Row(
+                  children: [
+                    _buildFirebaseStatus(context),
+                    const SizedBox(width: 12),
+                    _buildNotificacionesBoton(context),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1400),
+                    child: _buildBody(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _webNavItem(int index, IconData icon, String label, bool collapsed, ThemeData theme) {
+    final isSelected = _selectedIndex == index;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: isSelected ? theme.colorScheme.primary.withAlpha(20) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => setState(() => _selectedIndex = index),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 12, vertical: 10),
+            child: Row(
+              mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                Icon(icon, size: 18, color: isSelected ? theme.colorScheme.primary : Colors.grey.shade600),
+                if (!collapsed) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected ? theme.colorScheme.primary : Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _webNewCitaButton(bool collapsed, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: theme.colorScheme.primary,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => setState(() => _selectedIndex = 2),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 12, vertical: 10),
+            child: Row(
+              mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                const Icon(LucideIcons.plus, size: 18, color: Colors.white),
+                if (!collapsed) ...[
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Nueva cita',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -630,6 +841,10 @@ class _AgendaViewState extends State<_AgendaView> {
     final primaryLight = primary.withAlpha(13);
     final primaryDark = primary.withOpacity(0.7);
 
+    if (kIsWeb) {
+      return _buildAgendaWeb(agenda, config, fecha, citasSede, timeline, motivoBloqueo, esFestivo, nombreFestivo, primary, primaryLight, primaryDark);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -705,8 +920,8 @@ class _AgendaViewState extends State<_AgendaView> {
             ),
           )
         else if (_cargandoHorarios)
-          Expanded(
-            child: const Center(child: CircularProgressIndicator()),
+          const Expanded(
+            child: Center(child: CircularProgressIndicator()),
           )
         else if (motivoBloqueo != null || timeline.isEmpty)
           Expanded(
@@ -758,6 +973,154 @@ class _AgendaViewState extends State<_AgendaView> {
               },
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildAgendaWeb(
+    AgendaProvider agenda,
+    ConfigProvider config,
+    DateTime fecha,
+    List<Cita> citasSede,
+    List<_TimelineSlot> timeline,
+    String? motivoBloqueo,
+    bool esFestivo,
+    String? nombreFestivo,
+    Color primary,
+    Color primaryLight,
+    Color primaryDark,
+  ) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 320,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MiniCalendar(
+                  selectedDate: fecha,
+                  excepcionFechas: _excepcionFechas,
+                  citaFechas: _fechasConCitas,
+                  onDateSelected: (d) => agenda.setFecha(d),
+                ),
+                const SizedBox(height: 16),
+                _buildSedeSelector(config, agenda),
+                const SizedBox(height: 12),
+                _buildResumenHoy(config.sedeSeleccionadaId, primary, primaryLight, primaryDark),
+              ],
+            ),
+          ),
+        ),
+        VerticalDivider(width: 1, color: theme.dividerTheme.color ?? theme.dividerColor),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (esFestivo)
+                Container(
+                  width: double.infinity,
+                  color: Colors.orange.shade100,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.sparkles, size: 16, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Text('Festivo: $nombreFestivo',
+                          style: const TextStyle(fontSize: 13, color: Colors.orange)),
+                    ],
+                  ),
+                ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.clock, size: 16, color: primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Horario del día',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: primary),
+                    ),
+                    const Spacer(),
+                    if (_horariosDelDia.isNotEmpty)
+                      Text(
+                        '${_horariosDelDia.length} turno${_horariosDelDia.length > 1 ? 's' : ''}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              if (agenda.cargando)
+                const Expanded(child: Center(child: CircularProgressIndicator()))
+              else if (agenda.ultimoError != null)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.alertCircle, size: 40, color: Colors.red),
+                        const SizedBox(height: 8),
+                        const Text('Error al cargar datos.',
+                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 4),
+                        Text(agenda.ultimoError!, style: const TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_cargandoHorarios)
+                const Expanded(child: Center(child: CircularProgressIndicator()))
+              else if (motivoBloqueo != null || timeline.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(motivoBloqueo != null ? Icons.block : Icons.event_busy,
+                            size: 40, color: motivoBloqueo != null ? Colors.orange : Colors.grey),
+                        const SizedBox(height: 8),
+                        Text(
+                          motivoBloqueo ?? 'No hay horarios para este día',
+                          style: TextStyle(
+                            color: motivoBloqueo != null ? Colors.orange.shade800 : Colors.grey,
+                            fontWeight: motivoBloqueo != null ? FontWeight.w500 : null,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollCtrl,
+                    itemCount: timeline.length + (citasCanceladas(citasSede).isNotEmpty ? citasCanceladas(citasSede).length : 0),
+                    itemBuilder: (context, i) {
+                      if (i < timeline.length) {
+                        return _buildTimelineRow(timeline[i]);
+                      }
+                      final canceladas = citasCanceladas(citasSede);
+                      if (canceladas.isEmpty) return null;
+                      if (i == timeline.length) {
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                          child: Text('Canceladas',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                        );
+                      }
+                      final c = canceladas[i - timeline.length - 1];
+                      return _buildCitaCard(c, Colors.red.shade200);
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }

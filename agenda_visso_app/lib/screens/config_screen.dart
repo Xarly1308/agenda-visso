@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,6 +55,162 @@ class _ConfigScreenState extends State<ConfigScreen> {
     final auth = context.watch<AuthProvider>();
     final esDesarrollador = auth.esDesarrollador;
     final viendoOtra = auth.viendoOtraFranquicia;
+    final isWeb = kIsWeb;
+
+    if (isWeb) {
+      return _buildWebLayout(primary, auth, esDesarrollador, viendoOtra);
+    }
+
+    return _buildMobileLayout(primary, auth, esDesarrollador, viendoOtra);
+  }
+
+  Widget _buildWebLayout(Color primary, AuthProvider auth, bool esDesarrollador, bool viendoOtra) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Configuración', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 20),
+          _buildSectionGrid([
+            _GridItem(LucideIcons.store, 'Gestionar Sedes', 'Agregar, editar y eliminar sedes', primary,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConfigSedesScreen()))),
+            _GridItem(LucideIcons.calendar, 'Horarios por sede', 'Configurar días y horarios de atención por sede', Colors.indigo,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResumenHorariosScreen()))),
+            _GridItem(LucideIcons.ban, 'Días no laborables', 'Marcar vacaciones, festivos y ausencias', Colors.orange,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExcepcionesScreen()))),
+            _GridItem(LucideIcons.heartPulse, 'Tipos de consulta', 'Agregar o eliminar tipos de consulta', primary,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TiposConsultaScreen()))),
+          ]),
+          const SizedBox(height: 28),
+          const Text('Mantenimiento', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.grey)),
+          const SizedBox(height: 12),
+          _buildSectionGrid([
+            _GridItem(LucideIcons.eraser, 'Limpiar citas antiguas', 'Eliminar citas de días anteriores al de hoy', Colors.brown,
+                () => _confirmarLimpiar(context, 'antiguas')),
+            _GridItem(LucideIcons.rotateCcw, 'Resetear semana actual', 'Eliminar todas las citas de esta semana', Colors.red,
+                () => _confirmarLimpiar(context, 'semana')),
+          ]),
+          if (auth.franquiciaId == '1000') ...[
+            const SizedBox(height: 28),
+            const Text('Compartir', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.grey)),
+            const SizedBox(height: 12),
+            _buildSectionGrid([
+              _GridItem(LucideIcons.share2, 'Enviar invitación por WhatsApp', 'Compartir link de registro con pacientes', Colors.green,
+                  () => _enviarInvitacionWhatsApp(context)),
+            ]),
+          ],
+          if (esDesarrollador) ...[
+            const SizedBox(height: 28),
+            const Text('Desarrollador', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.red)),
+            const SizedBox(height: 12),
+            if (viendoOtra)
+              Card(
+                color: Colors.orange.shade50,
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Colors.orange,
+                    child: Icon(LucideIcons.eye, color: Colors.white, size: 20),
+                  ),
+                  title: Text('Viendo: ${auth.franquiciaNombre ?? auth.franquiciaId}',
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Estás visualizando otra franquicia'),
+                  trailing: TextButton(
+                    onPressed: () async {
+                      await auth.volverAMiFranquicia();
+                      if (context.mounted) {
+                        final uid = auth.user?.uid;
+                        if (uid != null) {
+                          context.read<ConfigProvider>().inicializar(uid);
+                          context.read<AgendaProvider>().inicializar(uid, nombre: auth.nombreUsuario);
+                          context.read<NotificacionProvider>().inicializar(uid);
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Volviendo a tu franquicia'), behavior: SnackBarBehavior.floating),
+                        );
+                      }
+                    },
+                    child: const Text('Volver a la mía'),
+                  ),
+                ),
+              ),
+            _buildSectionGrid([
+              _GridItem(LucideIcons.building, 'Gestionar franquicias', 'Ver, agregar, editar franquicias y profesionales', Colors.deepPurple,
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GestionarFranquiciasScreen()))),
+              _GridItem(LucideIcons.eraser, 'Limpiar datos', 'Selecciona qué datos eliminar de la franquicia activa', Colors.red,
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LimpiarDatosScreen()))),
+              _GridItem(LucideIcons.scrollText, 'Registro de cambios', 'Ver historial de acciones realizadas', Colors.teal,
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuditLogScreen()))),
+              _GridItem(LucideIcons.slidersHorizontal, 'Configurar registro', 'Seleccionar qué operaciones se registran', Colors.teal,
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuditConfigScreen()))),
+            ]),
+          ],
+          const SizedBox(height: 28),
+          const Text('Información', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.grey)),
+          const SizedBox(height: 12),
+          _buildSectionGrid([
+            _GridItem(LucideIcons.info, 'Acerca de', 'Versión $kAppVersion — información y actualizaciones', Colors.blueGrey,
+                () => _mostrarAcercaDe(context)),
+          ]),
+          const SizedBox(height: 24),
+          Center(
+            child: OutlinedButton.icon(
+              icon: const Icon(LucideIcons.logOut, size: 16, color: Colors.red),
+              label: const Text('Cerrar sesión', style: TextStyle(color: Colors.red)),
+              onPressed: () => context.read<AuthProvider>().logout(),
+              style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionGrid(List<_GridItem> items) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 800 ? 4 : (constraints.maxWidth > 500 ? 3 : 2);
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 2.2,
+          children: items.map((item) => _buildGridCard(item)).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildGridCard(_GridItem item) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: item.onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: item.color.withAlpha(30),
+                child: Icon(item.icon, size: 16, color: item.color),
+              ),
+              const SizedBox(height: 8),
+              Text(item.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(item.subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(Color primary, AuthProvider auth, bool esDesarrollador, bool viendoOtra) {
     return Column(
       children: [
         Expanded(
@@ -113,16 +270,18 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 onTap: () => _confirmarLimpiar(context, 'semana'),
               ),
 
-              const SizedBox(height: 24),
-              _SectionHeader(title: 'Compartir'),
-              const SizedBox(height: 8),
-              _CardButton(
-                icon: LucideIcons.share2,
-                title: 'Enviar invitación por WhatsApp',
-                subtitle: 'Compartir link de registro con pacientes',
-                color: Colors.green,
-                onTap: () => _enviarInvitacionWhatsApp(context),
-              ),
+              if (auth.franquiciaId == '1000') ...[
+                const SizedBox(height: 24),
+                _SectionHeader(title: 'Compartir'),
+                const SizedBox(height: 8),
+                _CardButton(
+                  icon: LucideIcons.share2,
+                  title: 'Enviar invitación por WhatsApp',
+                  subtitle: 'Compartir link de registro con pacientes',
+                  color: Colors.green,
+                  onTap: () => _enviarInvitacionWhatsApp(context),
+                ),
+              ],
 
 if (esDesarrollador) ...[
                 const SizedBox(height: 24),
@@ -934,4 +1093,13 @@ Future<void> _enviarInvitacionWhatsApp(BuildContext context) async {
       );
     }
   }
+}
+
+class _GridItem {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+  _GridItem(this.icon, this.title, this.subtitle, this.color, this.onTap);
 }
