@@ -249,7 +249,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final auth = context.watch<AuthProvider>();
     final viendoOtra = auth.viendoOtraFranquicia;
     return Scaffold(
-      appBar: isDesktop
+      appBar: (isDesktop && !kIsWeb)
           ? AppBar(
               toolbarHeight: 60,
               titleSpacing: 0,
@@ -267,16 +267,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             )
-          : AppBar(
-              title: SizedBox(
-                height: 32,
-                child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain),
-              ),
-              actions: [
-                _buildFirebaseStatus(context),
-                _buildNotificacionesBoton(context),
-              ],
-            ),
+          : kIsWeb
+              ? null
+              : AppBar(
+                  title: SizedBox(
+                    height: 32,
+                    child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain),
+                  ),
+                  actions: [
+                    _buildFirebaseStatus(context),
+                    _buildNotificacionesBoton(context),
+                  ],
+                ),
       body: Column(
         children: [
           if (viendoOtra)
@@ -839,7 +841,7 @@ class _AgendaViewState extends State<_AgendaView> {
 
     final primary = Theme.of(context).colorScheme.primary;
     final primaryLight = primary.withAlpha(13);
-    final primaryDark = primary.withOpacity(0.7);
+    final primaryDark = primary.withAlpha(178);
 
     if (kIsWeb) {
       return _buildAgendaWeb(agenda, config, fecha, citasSede, timeline, motivoBloqueo, esFestivo, nombreFestivo, primary, primaryLight, primaryDark);
@@ -995,9 +997,9 @@ class _AgendaViewState extends State<_AgendaView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 320,
+          width: 420,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1035,7 +1037,7 @@ class _AgendaViewState extends State<_AgendaView> {
                   ),
                 ),
               Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
                 child: Row(
                   children: [
                     Icon(LucideIcons.clock, size: 16, color: primary),

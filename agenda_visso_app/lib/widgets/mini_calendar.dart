@@ -59,7 +59,7 @@ class MiniCalendar extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Row(
-          children: ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => Expanded(
+          children: ['L', 'M', 'Mi', 'J', 'V', 'S', 'D'].map((d) => Expanded(
             child: Center(
               child: Text(d, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
             ),

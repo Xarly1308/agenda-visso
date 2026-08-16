@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
@@ -171,7 +170,8 @@ class _PacienteProfileSheetState extends State<PacienteProfileSheet> {
     try {
       final path = 'pacientes/${widget.paciente.id}/${_uuid.v4()}.jpg';
       final ref = FirebaseStorage.instance.ref().child(path);
-      await ref.putFile(File(file.path));
+      final bytes = await file.readAsBytes();
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
       final url = await ref.getDownloadURL();
 
       final actualizado = widget.paciente.copyWith(fotoUrl: url);

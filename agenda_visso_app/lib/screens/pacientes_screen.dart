@@ -16,6 +16,8 @@ class PacientesScreen extends StatefulWidget {
 class _PacientesScreenState extends State<PacientesScreen> {
   final _searchCtrl = TextEditingController();
   bool _inicializado = false;
+  int _paginaActual = 0;
+  static const int _porPagina = 10;
 
   @override
   void didChangeDependencies() {
@@ -102,14 +104,20 @@ class _PacientesScreenState extends State<PacientesScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<PacientesProvider>();
     final pacientes = provider.resultados;
+    final totalPaginas = (pacientes.length / _porPagina).ceil();
+    if (_paginaActual >= totalPaginas && totalPaginas > 0) _paginaActual = totalPaginas - 1;
+    final inicio = _paginaActual * _porPagina;
+    final fin = (inicio + _porPagina).clamp(0, pacientes.length);
+    final pacientesPagina = pacientes.sublist(inicio, fin);
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
           child: Row(
             children: [
-              Expanded(
+              SizedBox(
+                width: 400,
                 child: TextField(
                   controller: _searchCtrl,
                   decoration: InputDecoration(
@@ -121,6 +129,7 @@ class _PacientesScreenState extends State<PacientesScreen> {
                             onPressed: () {
                               _searchCtrl.clear();
                               provider.buscar('');
+                              setState(() => _paginaActual = 0);
                             },
                           )
                         : null,
@@ -131,7 +140,10 @@ class _PacientesScreenState extends State<PacientesScreen> {
                     fillColor: Colors.grey.shade100,
                     contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                   ),
-                  onChanged: (v) => provider.buscar(v),
+                  onChanged: (v) {
+                    provider.buscar(v);
+                    setState(() => _paginaActual = 0);
+                  },
                 ),
               ),
               PopupMenuButton<SortMode>(
@@ -175,7 +187,7 @@ class _PacientesScreenState extends State<PacientesScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
                   child: Row(
                     children: [
                       Text('${pacientes.length} paciente${pacientes.length == 1 ? '' : 's'}',
@@ -188,14 +200,14 @@ class _PacientesScreenState extends State<PacientesScreen> {
                 ),
                 Expanded(
                   child: ListView.builder(
-                    itemCount: pacientes.length,
+                    itemCount: pacientesPagina.length,
                     itemBuilder: (_, i) {
-                      final p = pacientes[i];
+                      final p = pacientesPagina[i];
                       final iniciales = p.nombres.isNotEmpty
                           ? p.nombres.split(' ').where((w) => w.isNotEmpty).map((w) => w[0]).take(2).join()
                           : '?';
                       return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(
@@ -265,6 +277,36 @@ class _PacientesScreenState extends State<PacientesScreen> {
                     },
                   ),
                 ),
+                if (totalPaginas > 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left, size: 20),
+                          onPressed: _paginaActual > 0
+                              ? () => setState(() => _paginaActual--)
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Página ${_paginaActual + 1} de $totalPaginas',
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right, size: 20),
+                          onPressed: _paginaActual < totalPaginas - 1
+                              ? () => setState(() => _paginaActual++)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
