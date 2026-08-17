@@ -153,15 +153,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
             _GridItem(LucideIcons.info, 'Acerca de', 'Versión $kAppVersion — información y actualizaciones', Colors.blueGrey,
                 () => _mostrarAcercaDe(context)),
           ]),
-          const SizedBox(height: 24),
-          Center(
-            child: OutlinedButton.icon(
-              icon: const Icon(LucideIcons.logOut, size: 16, color: Colors.red),
-              label: const Text('Cerrar sesión', style: TextStyle(color: Colors.red)),
-              onPressed: () => context.read<AuthProvider>().logout(),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
-            ),
-          ),
         ],
       ),
     );
@@ -190,19 +181,19 @@ class _ConfigScreenState extends State<ConfigScreen> {
         borderRadius: BorderRadius.circular(12),
         onTap: item.onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircleAvatar(
-                radius: 16,
+                radius: 18,
                 backgroundColor: item.color.withAlpha(30),
-                child: Icon(item.icon, size: 16, color: item.color),
+                child: Icon(item.icon, size: 18, color: item.color),
               ),
               const SizedBox(height: 8),
-              Text(item.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text(item.subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(item.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(item.subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),

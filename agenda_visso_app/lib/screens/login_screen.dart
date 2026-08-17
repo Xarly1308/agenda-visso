@@ -138,13 +138,15 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: const Color(0xFF003B74),
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   Image.asset('assets/splash.png', width: 120,
                       errorBuilder: (c, e, s) => const Icon(Icons.visibility, size: 80, color: Colors.white)),
                   const SizedBox(height: 8),
@@ -240,9 +242,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: auth.cargando
                           ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Text('Ingresar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

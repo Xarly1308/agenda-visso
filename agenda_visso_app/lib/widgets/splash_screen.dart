@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../screens/config_screen.dart';
 
-const String _appVersion = '1.0.0';
+const String _appVersion = kAppVersion;
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});

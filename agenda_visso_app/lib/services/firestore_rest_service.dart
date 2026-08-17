@@ -541,6 +541,35 @@ class FirestoreRestService {
         .toList();
   }
 
+  Future<List<Cita>> getCitasPorPaciente(String pacienteId) async {
+    final docs = await _runQuery({
+      'structuredQuery': {
+        'from': [{'collectionId': 'citas'}],
+        'where': _withFranquicia({
+          'fieldFilter': {
+            'field': {'fieldPath': 'pacienteId'},
+            'op': 'EQUAL',
+            'value': {'stringValue': pacienteId},
+          },
+        }),
+        'orderBy': [
+          {
+            'field': {'fieldPath': 'fecha'},
+            'direction': 'DESCENDING',
+          },
+          {
+            'field': {'fieldPath': 'hora'},
+            'direction': 'DESCENDING',
+          },
+        ],
+        'limit': 1,
+      },
+    });
+    return docs
+        .map((r) => Cita.fromMap(_fieldsToMap(r['document']['fields'])))
+        .toList();
+  }
+
   Future<Cita> addCita(Cita cita) async {
     final id = _uuid.v4();
     final c = cita.copyWith(id: id);

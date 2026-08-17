@@ -63,6 +63,9 @@ class FirestoreService {
   Future<List<Paciente>> buscarPacientes(String query) =>
       _rest.buscarPacientes(query);
 
+  Future<List<Cita>> getCitasPorPaciente(String pacienteId) =>
+      _rest.getCitasPorPaciente(pacienteId);
+
   Future<List<Cita>> getCitasPorFecha(DateTime fecha) =>
       _rest.getCitasPorFecha(fecha);
 

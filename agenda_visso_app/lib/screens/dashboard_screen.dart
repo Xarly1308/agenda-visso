@@ -199,13 +199,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final nombres = festivos.take(3).map((f) {
         final nom = ColombianHolidays.nombreFestivo(f);
         return '${f.day}/${f.month}: $nom';
-      }).join('\n');
+      }).join('  ·  ');
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Próximos festivos:\n$nombres'),
+          content: Row(
+            children: [
+              const Icon(LucideIcons.sparkles, size: 16, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Próximos festivos',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text(nombres,
+                        style: const TextStyle(fontSize: 11, color: Colors.white70),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ],
+          ),
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 6),
-          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 10),
+          backgroundColor: Colors.orange.shade700,
+          margin: const EdgeInsets.fromLTRB(400, 0, 400, 20),
+          action: SnackBarAction(
+            label: 'Cerrar',
+            textColor: Colors.white,
+            onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+          ),
         ),
       );
     });
@@ -424,19 +450,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             children: [
               Container(
-                height: 60,
+                height: 70,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 alignment: collapsed ? Alignment.center : Alignment.centerLeft,
                 child: collapsed
-                    ? SizedBox(height: 28, child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain))
-                    : Row(
-                        children: [
-                          SizedBox(height: 28, child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain)),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text('Agenda Visso', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                          ),
-                        ],
+                    ? SizedBox(height: 40, child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain))
+                    : Center(
+                        child: SizedBox(height: 50, child: Image.asset('assets/visso_logo.png', fit: BoxFit.contain)),
                       ),
               ),
               const Divider(height: 1),
@@ -490,7 +510,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       icon: const Icon(LucideIcons.logOut, size: 14),
-                      label: const Text('Salir', style: TextStyle(fontSize: 11)),
+                      label: const Text('Cerrar sesión', style: TextStyle(fontSize: 11)),
                       onPressed: () => auth.logout(),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
@@ -525,9 +545,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: Row(
                   children: [
+                    const Spacer(),
                     _buildFirebaseStatus(context),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     _buildNotificacionesBoton(context),
+                    const SizedBox(width: 8),
                   ],
                 ),
               ),
@@ -622,13 +644,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
       message: conectado ? 'Conectado a Firebase' : 'Error de conexión',
       child: GestureDetector(
         onTap: () {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(conectado
-                  ? 'Conectado a Firebase'
-                  : 'Error de conexión: ${agenda.ultimoError}'),
+              content: Row(
+                children: [
+                  Icon(
+                    conectado ? LucideIcons.wifi : LucideIcons.wifiOff,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      conectado ? 'Conectado a Firebase' : 'Error de conexión: ${agenda.ultimoError}',
+                      style: const TextStyle(fontSize: 12, color: Colors.white),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
               behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 3),
+              duration: const Duration(seconds: 10),
+              margin: const EdgeInsets.fromLTRB(400, 0, 400, 20),
+              backgroundColor: conectado ? Colors.green.shade700 : Colors.red.shade700,
+              action: SnackBarAction(
+                label: 'Cerrar',
+                textColor: Colors.white,
+                onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+              ),
             ),
           );
         },
@@ -854,13 +898,16 @@ class _AgendaViewState extends State<_AgendaView> {
           Container(
             width: double.infinity,
             color: Colors.orange.shade100,
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
             child: Row(
               children: [
-                const Icon(LucideIcons.sparkles, size: 16, color: Colors.orange),
-                const SizedBox(width: 8),
-                Text('Festivo: $nombreFestivo',
-                    style: const TextStyle(fontSize: 13, color: Colors.orange)),
+                const Icon(LucideIcons.sparkles, size: 14, color: Colors.orange),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text('Festivo: $nombreFestivo',
+                      style: const TextStyle(fontSize: 12, color: Colors.orange),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
               ],
             ),
           ),
@@ -997,12 +1044,14 @@ class _AgendaViewState extends State<_AgendaView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 420,
+          width: 500,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 20, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildSedeSelector(config, agenda),
+                const SizedBox(height: 12),
                 MiniCalendar(
                   selectedDate: fecha,
                   excepcionFechas: _excepcionFechas,
@@ -1010,8 +1059,6 @@ class _AgendaViewState extends State<_AgendaView> {
                   onDateSelected: (d) => agenda.setFecha(d),
                 ),
                 const SizedBox(height: 16),
-                _buildSedeSelector(config, agenda),
-                const SizedBox(height: 12),
                 _buildResumenHoy(config.sedeSeleccionadaId, primary, primaryLight, primaryDark),
               ],
             ),
@@ -1026,13 +1073,16 @@ class _AgendaViewState extends State<_AgendaView> {
                 Container(
                   width: double.infinity,
                   color: Colors.orange.shade100,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
                   child: Row(
                     children: [
-                      const Icon(LucideIcons.sparkles, size: 16, color: Colors.orange),
-                      const SizedBox(width: 8),
-                      Text('Festivo: $nombreFestivo',
-                          style: const TextStyle(fontSize: 13, color: Colors.orange)),
+                      const Icon(LucideIcons.sparkles, size: 14, color: Colors.orange),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text('Festivo: $nombreFestivo',
+                            style: const TextStyle(fontSize: 12, color: Colors.orange),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
                     ],
                   ),
                 ),
