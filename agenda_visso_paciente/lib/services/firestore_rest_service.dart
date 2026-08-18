@@ -188,38 +188,28 @@ class FirestoreRestService {
 
   Future<List<Cita>> getCitas(String profesionalId, DateTime fecha, {String? sedeId}) async {
     final fechaStr = fecha.toIso8601String().split('T')[0];
-    final filters = <Map<String, dynamic>>[
-      {
-        'fieldFilter': {
-          'field': {'fieldPath': 'profesionalId'},
-          'op': 'EQUAL',
-          'value': {'stringValue': profesionalId}
-        }
-      },
-      {
-        'fieldFilter': {
-          'field': {'fieldPath': 'fecha'},
-          'op': 'EQUAL',
-          'value': {'stringValue': fechaStr}
-        }
-      },
-    ];
-    if (sedeId != null) {
-      filters.add({
-        'fieldFilter': {
-          'field': {'fieldPath': 'sedeId'},
-          'op': 'EQUAL',
-          'value': {'stringValue': sedeId}
-        }
-      });
-    }
     final body = {
       'structuredQuery': {
         'from': [{'collectionId': 'citas'}],
         'where': {
           'compositeFilter': {
             'op': 'AND',
-            'filters': filters,
+            'filters': [
+              {
+                'fieldFilter': {
+                  'field': {'fieldPath': 'profesionalId'},
+                  'op': 'EQUAL',
+                  'value': {'stringValue': profesionalId}
+                }
+              },
+              {
+                'fieldFilter': {
+                  'field': {'fieldPath': 'fecha'},
+                  'op': 'EQUAL',
+                  'value': {'stringValue': fechaStr}
+                }
+              },
+            ]
           }
         }
       }
@@ -233,10 +223,14 @@ class FirestoreRestService {
       throw Exception('Error al cargar citas: ${response.statusCode}');
     }
     final results = jsonDecode(response.body) as List;
-    return results
+    final todas = results
         .where((r) => r.containsKey('document'))
         .map((r) => Cita.fromMap(_fieldsToMap(r['document']['fields'])))
         .toList();
+    if (sedeId != null) {
+      return todas.where((c) => c.sedeId == sedeId).toList();
+    }
+    return todas;
   }
 
   Future<Paciente?> buscarPaciente(String documento) async {
