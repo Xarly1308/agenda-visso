@@ -13,7 +13,7 @@ class PacienteService {
   Future<Map<String, String>> getProfesionales() => _rest.getProfesionales();
   Future<List<Horario>> getHorarios(String profesionalId) => _rest.getHorarios(profesionalId);
   Future<List<Excepcion>> getExcepciones(String profesionalId) => _rest.getExcepciones(profesionalId);
-  Future<List<Cita>> getCitas(String profesionalId, DateTime fecha) => _rest.getCitas(profesionalId, fecha);
+  Future<List<Cita>> getCitas(String profesionalId, DateTime fecha, {String? sedeId}) => _rest.getCitas(profesionalId, fecha, sedeId: sedeId);
   Future<Paciente?> buscarPaciente(String documento) => _rest.buscarPaciente(documento);
   Future<List<TipoConsulta>> getTiposConsulta() => _rest.getTiposConsulta();
 

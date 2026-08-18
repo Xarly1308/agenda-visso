@@ -180,7 +180,7 @@ class _AgendarCitaScreenState extends State<AgendarCitaScreen> {
 
     try {
       final horarios = await _service.getHorarios(_profesionalId!);
-      final citas = await _service.getCitas(_profesionalId!, fecha);
+      final citas = await _service.getCitas(_profesionalId!, fecha, sedeId: _sedeSeleccionada!.id);
 
       final horariosDelDia = horarios
           .where((h) => h.sedeId == _sedeSeleccionada!.id && h.diaSemana == fecha.weekday)

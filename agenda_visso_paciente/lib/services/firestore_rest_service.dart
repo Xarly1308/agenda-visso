@@ -104,7 +104,14 @@ class FirestoreRestService {
   Future<Map<String, String>> getProfesionales() async {
     final body = {
       'structuredQuery': {
-        'from': [{'collectionId': 'profesionales'}]
+        'from': [{'collectionId': 'profesionales'}],
+        'where': {
+          'fieldFilter': {
+            'field': {'fieldPath': 'franquiciaId'},
+            'op': 'EQUAL',
+            'value': {'stringValue': franquiciaId}
+          }
+        }
       }
     };
     final response = await _client.post(
@@ -179,30 +186,40 @@ class FirestoreRestService {
         .toList();
   }
 
-  Future<List<Cita>> getCitas(String profesionalId, DateTime fecha) async {
+  Future<List<Cita>> getCitas(String profesionalId, DateTime fecha, {String? sedeId}) async {
     final fechaStr = fecha.toIso8601String().split('T')[0];
+    final filters = <Map<String, dynamic>>[
+      {
+        'fieldFilter': {
+          'field': {'fieldPath': 'profesionalId'},
+          'op': 'EQUAL',
+          'value': {'stringValue': profesionalId}
+        }
+      },
+      {
+        'fieldFilter': {
+          'field': {'fieldPath': 'fecha'},
+          'op': 'EQUAL',
+          'value': {'stringValue': fechaStr}
+        }
+      },
+    ];
+    if (sedeId != null) {
+      filters.add({
+        'fieldFilter': {
+          'field': {'fieldPath': 'sedeId'},
+          'op': 'EQUAL',
+          'value': {'stringValue': sedeId}
+        }
+      });
+    }
     final body = {
       'structuredQuery': {
         'from': [{'collectionId': 'citas'}],
         'where': {
           'compositeFilter': {
             'op': 'AND',
-            'filters': [
-              {
-                'fieldFilter': {
-                  'field': {'fieldPath': 'profesionalId'},
-                  'op': 'EQUAL',
-                  'value': {'stringValue': profesionalId}
-                }
-              },
-              {
-                'fieldFilter': {
-                  'field': {'fieldPath': 'fecha'},
-                  'op': 'EQUAL',
-                  'value': {'stringValue': fechaStr}
-                }
-              }
-            ]
+            'filters': filters,
           }
         }
       }
