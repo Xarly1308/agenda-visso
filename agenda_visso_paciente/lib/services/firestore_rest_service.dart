@@ -233,6 +233,35 @@ class FirestoreRestService {
     return todas;
   }
 
+  Future<List<Cita>> getCitasTodas(DateTime fecha) async {
+    final fechaStr = fecha.toIso8601String().split('T')[0];
+    final body = {
+      'structuredQuery': {
+        'from': [{'collectionId': 'citas'}],
+        'where': {
+          'fieldFilter': {
+            'field': {'fieldPath': 'fecha'},
+            'op': 'EQUAL',
+            'value': {'stringValue': fechaStr}
+          }
+        }
+      }
+    };
+    final response = await _client.post(
+      _url(':runQuery'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al cargar citas: ${response.statusCode}');
+    }
+    final results = jsonDecode(response.body) as List;
+    return results
+        .where((r) => r.containsKey('document'))
+        .map((r) => Cita.fromMap(_fieldsToMap(r['document']['fields'])))
+        .toList();
+  }
+
   Future<Paciente?> buscarPaciente(String documento) async {
     final body = {
       'structuredQuery': {
