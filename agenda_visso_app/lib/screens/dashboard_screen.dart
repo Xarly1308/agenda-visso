@@ -1045,20 +1045,24 @@ class _AgendaViewState extends State<_AgendaView> {
       children: [
         SizedBox(
           width: 500,
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 20, 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSedeSelector(config, agenda),
-                const SizedBox(height: 12),
-                MiniCalendar(
-                  selectedDate: fecha,
-                  excepcionFechas: _excepcionFechas,
-                  citaFechas: _fechasConCitas,
-                  onDateSelected: (d) => agenda.setFecha(d),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSedeSelector(config, agenda),
+                    const SizedBox(height: 12),
+                    MiniCalendar(
+                      selectedDate: fecha,
+                      excepcionFechas: _excepcionFechas,
+                      citaFechas: _fechasConCitas,
+                      onDateSelected: (d) => agenda.setFecha(d),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
                 _buildResumenHoy(config.sedeSeleccionadaId, primary, primaryLight, primaryDark),
               ],
             ),
@@ -1308,7 +1312,7 @@ class _AgendaViewState extends State<_AgendaView> {
     final tituloFecha = '${dias[ahora.weekday - 1]} ${ahora.day} de ${meses[ahora.month - 1]}';
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(maxHeight: 160),
+      constraints: const BoxConstraints(maxHeight: 250),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -36,13 +36,30 @@ class PacientesProvider extends ChangeNotifier {
     try {
       final ahora = DateTime.now();
       final inicio = ahora.subtract(const Duration(days: 365));
-      final todasLasCitas = await _service.getCitasEnRango(inicio, ahora);
+      final fin = ahora.add(const Duration(days: 90));
+      final todasLasCitas = await _service.getCitasEnRango(inicio, fin);
       final mapa = <String, Cita>{};
       for (final cita in todasLasCitas) {
+        if (cita.estado == 'cancelada') continue;
         final existente = mapa[cita.pacienteId];
-        if (existente == null || cita.fecha.isAfter(existente.fecha) ||
-            (cita.fecha.isAtSameMomentAs(existente.fecha) && cita.hora.compareTo(existente.hora) > 0)) {
+        if (existente == null) {
           mapa[cita.pacienteId] = cita;
+          continue;
+        }
+        final esFutura = cita.fecha.isAfter(ahora);
+        final existenteEsFutura = existente.fecha.isAfter(ahora);
+        if (esFutura && !existenteEsFutura) {
+          mapa[cita.pacienteId] = cita;
+        } else if (esFutura && existenteEsFutura) {
+          if (cita.fecha.isBefore(existente.fecha) ||
+              (cita.fecha.isAtSameMomentAs(existente.fecha) && cita.hora.compareTo(existente.hora) < 0)) {
+            mapa[cita.pacienteId] = cita;
+          }
+        } else if (!esFutura && !existenteEsFutura) {
+          if (cita.fecha.isAfter(existente.fecha) ||
+              (cita.fecha.isAtSameMomentAs(existente.fecha) && cita.hora.compareTo(existente.hora) > 0)) {
+            mapa[cita.pacienteId] = cita;
+          }
         }
       }
       _ultimasCitas = mapa;

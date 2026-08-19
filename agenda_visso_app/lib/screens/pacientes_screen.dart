@@ -337,12 +337,14 @@ class _PacientesScreenState extends State<PacientesScreen> {
             : Colors.orange;
     final meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     final fechaStr = '${cita.fecha.day} ${meses[cita.fecha.month - 1]}';
+    final esFutura = cita.fecha.isAfter(DateTime.now());
+    final etiqueta = esFutura ? 'Próxima cita' : 'Última cita';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Última cita', style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+        Text(etiqueta, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text('$fechaStr · ${formato12h(cita.hora)}',
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
